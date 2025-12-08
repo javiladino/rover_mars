@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arquitectura Infraestructura POC: Proyecto Marte</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #050505;
+            --bg-panel: #0e0e16;
+            --oci-red: #c74634; /* Oracle Red-ish */
+            --mars-orange: #e67e22;
+            --neon-cyan: #00f3ff;
+            --neon-green: #39ff14;
+            --neon-yellow: #f3ff00;
+            --text-main: #e0e0e0;
+            --line-color: #333;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-image: 
+                linear-gradient(rgba(199, 70, 52, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(199, 70, 52, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        h1 {
+            font-family: 'Share Tech Mono', monospace;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 5px;
+            border-bottom: 2px solid var(--oci-red);
+            padding-bottom: 10px;
+        }
+
+        .subtitle {
+            color: var(--oci-red);
+            font-size: 1.1rem;
+            margin-bottom: 50px;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        /* MAP CONTAINER */
+        .map-container {
+            width: 100%;
+            max-width: 1200px;
+            position: relative;
+        }
+
+        .cloud-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 2 Columns */
+            grid-template-rows: auto auto;  /* 2 Rows */
+            gap: 60px;
+            position: relative;
+            border: 2px dashed var(--oci-red);
+            padding: 60px;
+            border-radius: 8px;
+            background: rgba(199, 70, 52, 0.02);
+        }
+
+        .cloud-grid::before {
+            content: 'ORACLE CLOUD INFRASTRUCTURE (FULL DEPLOYMENT)';
+            position: absolute;
+            top: -12px;
+            left: 30px;
+            background: var(--bg-dark);
+            padding: 0 15px;
+            color: var(--oci-red);
+            font-family: 'Share Tech Mono';
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+
+        /* CONNECTING LINES (SVG) */
+        .connections {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+            overflow: visible;
+        }
+        
+        .connection-line {
+            stroke: var(--oci-red);
+            stroke-width: 2;
+            fill: none;
+            stroke-dasharray: 8;
+            opacity: 0.4;
+            animation: flow 40s linear infinite;
+        }
+
+        .connection-active {
+            stroke: var(--neon-cyan);
+            stroke-width: 3;
+            fill: none;
+            stroke-dasharray: 5 5;
+            animation: flow-fast 1s linear infinite;
+            filter: drop-shadow(0 0 3px var(--neon-cyan));
+        }
+
+        @keyframes flow { to { stroke-dashoffset: -1000; } }
+        @keyframes flow-fast { to { stroke-dashoffset: -20; } }
+
+        /* NODES */
+        .node {
+            background: var(--bg-panel);
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 25px;
+            position: relative;
+            z-index: 1;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            min-height: 260px;
+        }
+
+        .node:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            border-color: white;
+        }
+
+        .node-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #333;
+        }
+
+        /* Node Status Dot */
+        .status-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: #333;
+            margin-left: auto;
+        }
+        .status-online { background: var(--neon-green); box-shadow: 0 0 5px var(--neon-green); }
+
+        .node-title {
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 1.2rem;
+            color: white;
+        }
+        
+        .node-subtitle {
+            font-size: 0.8rem;
+            color: #777;
+            font-family: 'Share Tech Mono';
+        }
+
+        .vm-specs {
+            background: rgba(255,255,255,0.03);
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-family: 'Share Tech Mono';
+            font-size: 0.8rem;
+            color: #aaa;
+            display: flex;
+            justify-content: space-between;
+            border: 1px solid #222;
+        }
+
+        .service-list {
+            margin: 0; padding: 0;
+            list-style: none;
+            font-size: 0.95rem;
+        }
+
+        .service-list li {
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .service-icon { color: var(--neon-cyan); width: 25px; text-align: center; }
+
+        .port-tag {
+            font-size: 0.7rem;
+            background: #222;
+            color: #888;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin-left: auto;
+            font-family: monospace;
+            border: 1px solid #333;
+        }
+
+        /* Specific Node Colors & Borders */
+        .border-mars { border-top: 4px solid var(--mars-orange); }
+        .border-cloud { border-top: 4px solid var(--oci-red); }
+        .border-green { border-top: 4px solid var(--neon-green); }
+
+        /* Grid Placement */
+        /* Top Row */
+        .cloud-vm1 { grid-column: 1; grid-row: 1; } /* Rover */
+        .cloud-vm2 { grid-column: 2; grid-row: 1; } /* Comms */
+        
+        /* Bottom Row (Flow goes clockwise-ish or Z pattern) */
+        .cloud-vm3 { grid-column: 2; grid-row: 2; } /* Storage */
+        .cloud-vm4 { grid-column: 1; grid-row: 2; } /* Mission Ops */
+
+        /* Labels inside grid */
+        .zone-label {
+            position: absolute;
+            font-family: 'Share Tech Mono';
+            color: rgba(255,255,255,0.1);
+            font-size: 3rem;
+            font-weight: bold;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .zone-mars { top: 20px; left: 20px; color: rgba(230, 126, 34, 0.05); }
+        .zone-earth { bottom: 20px; right: 20px; text-align: right; color: rgba(0, 243, 255, 0.05); }
+
+    </style>
+</head>
+<body>
+
+    <h1>INFRAESTRUCTURA DE DESPLIEGUE</h1>
+    <div class="subtitle">ESTRATEGIA "FULL CLOUD": 4 NODOS OCI CONSOLIDADOS</div>
+    
+    <div class="map-container">
+        
+        <div class="cloud-grid">
+            <div class="zone-label zone-mars">MARS<br>SEGMENT</div>
+            <div class="zone-label zone-earth">EARTH<br>SEGMENT</div>
+
+            <!-- SVG CONNECTIONS LAYER -->
+            <!-- Coordinates are approximate percentages relative to grid container -->
+            <svg class="connections">
+                <!-- VM1 (Rover) to VM2 (Comms) -->
+                <path d="M 450 190 L 610 190" class="connection-active" />
+                
+                <!-- VM2 (Comms) down to VM4 (Mission Ops) - The processing unit pulls data -->
+                <path d="M 850 320 L 850 450 L 500 450" class="connection-line" />
+                
+                <!-- VM4 (Mission Ops) to VM3 (Storage) - Storing processed data -->
+                <path d="M 450 600 L 610 600" class="connection-line" />
+                
+                <!-- VM4 also pulls from VM3 for visualization -->
+                <path d="M 610 620 L 450 620" class="connection-active" style="stroke-dasharray: 2;" />
+            </svg>
+
+            <!-- VM 1: ROVER SIMULATOR (Top Left) -->
+            <div class="node border-mars cloud-vm1">
+                <div class="node-header">
+                    <i class="fa-solid fa-robot" style="color: var(--mars-orange); font-size: 1.4rem;"></i>
+                    <div>
+                        <div class="node-title">VM-01: ROVER SIM</div>
+                        <div class="node-subtitle">ORIGEN DE DATOS (MARTE)</div>
+                    </div>
+                    <div class="status-dot status-online"></div>
+                </div>
+                <div class="vm-specs">
+                    <span>Shape: Ampere A1 (ARM)</span>
+                    <span>RAM: 4GB</span>
+                </div>
+                <ul class="service-list">
+                    <li>
+                        <span class="service-icon"><i class="fa-brands fa-python"></i></span>
+                        Telemetry Generator
+                        <span class="port-tag">SCRIPT</span>
+                    </li>
+                    <li>
+                        <span class="service-icon"><i class="fa-solid fa-camera-retro"></i></span>
+                        Image Simulator
+                        <span class="port-tag">CRON</span>
+                    </li>
+                    <li>
+                        <span class="service-icon"><i class="fa-solid fa-wifi"></i></span>
+                        Uplink Transmitter
+                        <span class="port-tag">CLIENT</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- VM 2: COMMS NODE (Top Right) -->
+            <div class="node border-cloud cloud-vm2">
+                <div class="node-header">
+                    <i class="fa-solid fa-satellite" style="color: var(--oci-red); font-size: 1.4rem;"></i>
+                    <div>
+                        <div class="node-title">VM-02: DEEP SPACE</div>
+                        <div class="node-subtitle">RED DE COMUNICACIONES</div>
+                    </div>
+                    <div class="status-dot status-online"></div>
+                </div>
+                <div class="vm-specs">
+                    <span>Shape: Ampere A1 (ARM)</span>
+                    <span>RAM: 4GB</span>
+                </div>
+                <ul class="service-list">
+                    <li>
+                        <span class="service-icon"><i class="fa-brands fa-docker"></i></span>
+                        RabbitMQ / Kafka
+                        <span class="port-tag">5672</span>
+                    </li>
+                    <li>
+                        <span class="service-icon"><i class="fa-solid fa-stopwatch"></i></span>
+                        Delay/Loss Simulator
+                        <span class="port-tag">PYTHON</span>
+                    </li>
+                    <li>
+                        <span class="service-icon"><i class="fa-solid fa-shield-halved"></i></span>
+                        Packet Filter
+                        <span class="port-tag">FW</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- VM 4: MISSION OPS (Bottom Left) - MERGED -->
+            <div class="node border-green cloud-vm4">
+                <div class="node-header">
+                    <i class="fa-solid fa-tower-observation" style="color: var(--neon-green); font-size: 1.4rem;"></i>
+                    <div>
+                        <div class="node-title">VM-04: MISSION OPS</div>
+                        <div class="node-subtitle">PROCESAMIENTO + VIZ (TIERRA)</div>
+                    </div>
+                    <div class="status-dot status-online"></div>
+                </div>
+                <div class="vm-specs">
+                    <span>Shape: Ampere A1 (ARM)</span>
+                    <span>RAM: 8GB+</span>
+                </div>
+                <ul class="service-list">
+                    <li>
+                        <span class="service-icon"><i class="fa-solid fa-microchip"></i></span>
+                        ETL & OpenCV Core
+                        <span class="port-tag">WORKER</span>
+                    </li>
+                    <li>
+                        <span class="service-icon"><i class="fa-solid fa-server"></i></span>
+                        FastAPI Backend
+                        <span class="port-tag">8000</span>
+                    </li>
+                    <li>
+                        <span class="service-icon"><i class="fa-brands fa-react"></i></span>
+                        Dashboard & Nginx
+                        <span class="port-tag">80/443</span>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- VM 3: DATA LAKE (Bottom Right) -->
+            <div class="node border-cloud cloud-vm3">
+                <div class="node-header">
+                    <i class="fa-solid fa-server" style="color: var(--oci-red); font-size: 1.4rem;"></i>
+                    <div>
+                        <div class="node-title">VM-03: DATA LAKE</div>
+                        <div class="node-subtitle">ALMACENAMIENTO PERSISTENTE</div>
+                    </div>
+                    <div class="status-dot status-online"></div>
+                </div>
+                <div class="vm-specs">
+                    <span>Shape: Ampere A1 (ARM)</span>
+                    <span>RAM: 8GB</span>
+                </div>
+                <ul class="service-list">
+                    <li>
+                        <span class="service-icon"><i class="fa-solid fa-bucket"></i></span>
+                        MinIO Object Store
+                        <span class="port-tag">9000</span>
+                    </li>
+                    <li>
+                        <span class="service-icon"><i class="fa-solid fa-database"></i></span>
+                        PostgreSQL + PostGIS
+                        <span class="port-tag">5432</span>
+                    </li>
+                    <li>
+                        <span class="service-icon"><i class="fa-solid fa-hard-drive"></i></span>
+                        Backup Volume
+                        <span class="port-tag">BLOCK</span>
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div style="margin-top: 40px; color: #555; font-family: 'Share Tech Mono'; font-size: 0.8rem; text-align: center;">
+        // NUEVA CONFIGURACIÓN: ELIMINADO NODO LOCAL<br>
+        // VM-04 CONSOLIDA "PROCESSING" Y "WEB" PARA LIBERAR ESPACIO<br>
+        // VM-01 AHORA ES UN ENTORNO AISLADO DE SIMULACIÓN "ROVER"
+    </div>
+
+</body>
+</html>
