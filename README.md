@@ -1,113 +1,131 @@
-# rover_mars
+# 🛰️ Proyecto Simulación de Flujo de Datos del Rover en Marte
 
-## 🚀 Visión general del proyecto
+## 🚀 Descripción
 
-**Objetivo:** Simular el flujo de datos de un rover en Marte, desde sensores hasta dashboards interactivos, usando datos reales o generados, replicando la infraestructura y procesos usados por NASA o ESA.
+Este proyecto simula el flujo completo de datos que realiza un rover en Marte, como el Curiosity, desde la captura de datos hasta la visualización en dashboards interactivos. El objetivo es educativo y demostrativo, dirigido a estudiantes de ingeniería de datos, startups interesadas en geodatos y reclutadores de agencias espaciales.
 
-**Aplicación:** Formación en ingeniería de datos, showcase técnico, demostrador para startups.
-
----
-
-## 🧪 PASO A PASO PARA SIMULAR TODO EL SISTEMA
-
-### 🛠️ 1. **Simulación del rover**
-
-### A. Emulación de sensores
-
-- Generar datos sintéticos con scripts (Python): temperatura, presión, posición GPS simulada (lat/long marcianas), salud del sistema, imágenes (pueden ser reales de NASA).
-- O usar un robot terrestre (Raspberry Pi + sensores) si es una demo física.
-
-### B. Imágenes y videos
-
-- Usar el API pública de la NASA: Mars Rover Photos
-- O cargar imágenes descargadas desde mars.nasa.gov
+La simulación incluye sensores, transmisión simulada, procesamiento ETL, almacenamiento analítico, análisis con modelos de machine learning y visualización.
 
 ---
 
-### 📡 2. **Simulación de la transmisión**
+## 🧱 Arquitectura General
 
-### A. Latencia y errores
+```
+[Simulación del Rover] -> [Transmisión simulada] -> [ETL Pipeline] -> [Almacenamiento] -> [Modelos ML] -> [Dashboard Web]
 
-- Simula la latencia (~10 minutos) usando colas de mensajes (Kafka, RabbitMQ) con delay.
-- Simula pérdida de paquetes con scripts que “descartan” algunos datos.
-
-### B. Enlace rover → orbitador → Tierra
-
-- Usa contenedores Docker para simular módulos intermedios (ex: un microservicio por cada etapa del flujo).
+```
 
 ---
 
-### 🧩 3. **Procesamiento y ETL**
+## 🧰 Tecnologías Usadas
 
-### A. Infraestructura simulada
-
-- **Airflow / Prefect**: Para orquestar el pipeline ETL.
-- **Spark / Pandas**: Limpieza y transformación.
-- **OpenCV**: Procesamiento de imágenes (detección de rocas, segmentación).
-
-### B. Formatos realistas
-
-- Simular datos en formato PDS4, o convertir imágenes y telemetría a CSV, Parquet, JSON.
-
----
-
-### 🗄️ 4. **Almacenamiento**
-
-- **Raw data lake**: S3 (local o nube), MinIO.
-- **Procesado**: PostgreSQL/PostGIS para datos geoespaciales.
-- **Ingesta incremental**: CDC simulada con Kafka o Python scripts.
-
----
-
-### 🤖 5. **Modelos de Machine Learning (opcional)**
-
-- Clasificador de terreno marciano (modelo simple con imágenes etiquetadas).
-- Predicción de fallos del sistema (modelo supervisado con datos simulados).
-- Detección de anomalías (autoencoders, isolation forest).
-
----
-
-### 📊 6. **Visualización**
-
-- App web con dashboards: ya creaste una con React + Tailwind + ShadCN.
-- Usa:
-    - **CesiumJS** para mapa 3D de Marte
-    - **Plotly/Dash** para estudiantes más científicos
-    - **Grafana** si quieres integración con bases de datos de series temporales (InfluxDB)
-
----
-
-## 📦 Entregables del proyecto
-
-| Tipo | Descripción |
+| Componente | Herramientas / Tecnologías |
 | --- | --- |
-| ✅ App Web | Visualización interactiva del flujo de datos e imágenes |
-| ✅ Repositorio GitHub | Código documentado, instructivo para reproducirlo |
-| ✅ Infraestructura en Docker | Microservicios simulando cada etapa |
-| ✅ Dataset sintético o real | Datos de sensores, imágenes, logs |
-| ✅ Documentación pedagógica | Para enseñar flujo ETL, procesamiento, ML |
-| ✅ Demo video / pitch | Corto de 2-3 minutos explicando el sistema (para reclutadores/agencias) |
+| Simulación de sensores | Python, Pandas, OpenCV |
+| Transmisión de datos | Kafka (opcional), Python con delay y errores |
+| Procesamiento ETL | Apache Airflow, PySpark |
+| Almacenamiento | MinIO / S3, PostgreSQL + PostGIS, Parquet |
+| ML (opcional) | Scikit-learn, TensorFlow, autoencoders |
+| Visualización | React, Tailwind, Plotly, CesiumJS, Recharts |
+| Infraestructura | Docker, Docker Compose, GitHub Actions (CI/CD) |
 
 ---
 
-## 🎯 Cómo captar la atención
+## 🧪 Simulación de Datos
 
-### Para reclutadores:
-
-- Publica en LinkedIn mostrando el stack usado, retos técnicos y la demo web.
-- Muestra impacto educativo y visión futura (cómo escalarlo a otras misiones o áreas).
-
-### Para agencias espaciales:
-
-- Utiliza términos técnicos usados por NASA/ESA (PDS4, CCSDS, DSN).
-- Propón cómo se puede adaptar para futuros rovers, estaciones lunares o investigación científica.
-- Presenta el proyecto como *proof of concept* para formación de talento en misiones remotas.
+- **Telemetría**: Temperatura, batería, presión, coordenadas
+- **Imágenes**: Usadas desde la NASA API o dataset estático
+- **Errores de transmisión**: Simulados con pérdidas y retrasos
 
 ---
 
-## 🧠 Recursos para inspirarte
+## 📦 Estructura del Proyecto
 
-- NASA APIs: https://api.nasa.gov
-- NASA’s Mars Open Data: https://mars.nasa.gov/msl/multimedia/raw-images/
-- ESA Open Data Portal: https://www.cosmos.esa.int/web/psa
-- CesiumJS + Mars tiles: https://sandcastle.cesium.com/
+```bash
+📁 rover-simulacion/
+├── data/                  # Datos simulados y crudos
+├── images/                # Imágenes del rover
+├── dashboard/             # Frontend en React
+├── backend/               # ETL + APIs simuladas
+├── notebooks/             # Análisis exploratorio y ML
+├── docker-compose.yml     # Infraestructura local
+├── airflow/               # DAGs para procesamiento
+└── README.md              # Este archivo
+
+```
+
+---
+
+## 🖥️ Cómo ejecutar el proyecto
+
+### Requisitos
+
+- Docker y Docker Compose
+- Python 3.10+
+- Node.js (para el dashboard)
+
+### Pasos
+
+```bash
+# 1. Clonar el repositorio
+$ git clone https://github.com/tuusuario/rover-simulacion
+$ cd rover-simulacion
+
+# 2. Levantar servicios
+$ docker-compose up --build
+
+# 3. Acceder al dashboard
+http://localhost:3000
+
+# 4. Entrar a Airflow para ver el pipeline
+http://localhost:8080 (usuario: admin, contraseña: admin)
+
+```
+
+---
+
+## 📊 Visualización
+
+- **Dashboard web** con telemetría, ruta del rover y galería de imágenes
+- **Gráficos interactivos** con Recharts y mapas con CesiumJS
+
+---
+
+## 🤖 Modelos de ML (opcional)
+
+- Clasificación de terreno
+- Predicción de fallos
+- Detección de anomalías en sensores
+
+---
+
+## 🎯 Objetivos educativos
+
+- Enseñar a construir pipelines ETL complejos
+- Integrar geodatos e imágenes en un solo sistema
+- Familiarizarse con tecnologías de datos usadas en exploración espacial
+
+---
+
+## 🤝 Contribuciones y licencias
+
+- Código bajo licencia MIT
+- Puedes abrir issues o pull requests
+
+---
+
+## 🌌 Créditos
+
+- NASA Open API
+- ESA Planetary Data Archive
+- Comunidad de datos abiertos espaciales
+
+---
+
+## 📬 Contacto
+
+Si eres reclutador, educador o agencia interesada, puedes contactarme en [javierladino@me.com](mailto:javierladino@me.com)
+
+---
+
+**¡Explora Marte, construyendo desde la Tierra!**
