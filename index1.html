@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cartographie de Données : Mars Rover</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #050505;
+            --bg-panel: #0e0e16;
+            --neon-cyan: #00f3ff;
+            --neon-pink: #ff0099;
+            --neon-green: #39ff14;
+            --neon-yellow: #f3ff00;
+            --text-main: #e0e0e0;
+            --line-color: #333;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 243, 255, 0.05) 0%, transparent 20%),
+                radial-gradient(circle at 90% 80%, rgba(255, 0, 153, 0.05) 0%, transparent 20%);
+        }
+
+        h1 {
+            font-family: 'Share Tech Mono', monospace;
+            color: var(--neon-cyan);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+        }
+
+        .subtitle {
+            color: var(--neon-pink);
+            font-size: 1.2rem;
+            margin-bottom: 60px;
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        /* MAP CONTAINER */
+        .map-container {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 20px;
+            width: 100%;
+            max-width: 1400px;
+            position: relative;
+        }
+
+        /* CONNECTING LINES (Background SVG) */
+        .connections {
+            position: absolute;
+            top: 50px; /* Approx center of cards */
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .connection-line {
+            stroke: var(--line-color);
+            stroke-width: 2;
+            fill: none;
+            stroke-dasharray: 10;
+            animation: flow 30s linear infinite;
+        }
+
+        .connection-active {
+            stroke: var(--neon-cyan);
+            stroke-width: 2;
+            stroke-dasharray: 5 5;
+            animation: flow-fast 2s linear infinite;
+            opacity: 0.6;
+        }
+
+        @keyframes flow {
+            to { stroke-dashoffset: -1000; }
+        }
+        @keyframes flow-fast {
+            to { stroke-dashoffset: -50; }
+        }
+
+        /* NODES (CARDS) */
+        .node {
+            background: var(--bg-panel);
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            min-height: 280px;
+        }
+
+        .node:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 243, 255, 0.15);
+            border-color: var(--neon-cyan);
+        }
+
+        .node-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+
+        .node:hover .node-header {
+            border-bottom-color: var(--neon-cyan);
+        }
+
+        .icon-box {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.05);
+            font-size: 1.2rem;
+        }
+
+        .mars-color { color: #ff6b6b; border: 1px solid #ff6b6b; box-shadow: 0 0 5px #ff6b6b; }
+        .space-color { color: #a29bfe; border: 1px solid #a29bfe; box-shadow: 0 0 5px #a29bfe; }
+        .earth-color { color: var(--neon-cyan); border: 1px solid var(--neon-cyan); box-shadow: 0 0 5px var(--neon-cyan); }
+        .process-color { color: var(--neon-pink); border: 1px solid var(--neon-pink); box-shadow: 0 0 5px var(--neon-pink); }
+        .viz-color { color: var(--neon-green); border: 1px solid var(--neon-green); box-shadow: 0 0 5px var(--neon-green); }
+
+        .node-title {
+            font-weight: 700;
+            text-transform: uppercase;
+            font-size: 1.1rem;
+            color: white;
+        }
+
+        .data-list {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .data-list li {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .data-tag {
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+        }
+
+        .tech-stack {
+            margin-top: auto;
+            font-size: 0.8rem;
+            color: #777;
+            border-top: 1px dashed #333;
+            padding-top: 10px;
+        }
+
+        .tech-stack span {
+            color: var(--neon-yellow);
+        }
+
+        /* ZONE LABELS */
+        .zone-labels {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            width: 100%;
+            max-width: 1400px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-family: 'Share Tech Mono';
+            color: #555;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+        }
+
+        /* GLITCH EFFECT ON HOVER */
+        .node:hover .node-title {
+            animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+            color: var(--neon-cyan);
+        }
+
+        @keyframes glitch {
+            0% { transform: translate(0) }
+            20% { transform: translate(-2px, 2px) }
+            40% { transform: translate(-2px, -2px) }
+            60% { transform: translate(2px, 2px) }
+            80% { transform: translate(2px, -2px) }
+            100% { transform: translate(0) }
+        }
+        
+        .latency-indicator {
+            position: absolute;
+            top: -100px;
+            left:0%;
+            width: 15%;
+            text-align: center;
+            color: var(--neon-pink);
+            font-family: 'Share Tech Mono';
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--neon-pink);
+            padding-bottom: 5px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>Cartographie du Flux de Données</h1>
+    <div class="subtitle">PROJET MARS // CARTE D'ARCHITECTURE SYSTÈME V1.0</div>
+
+    <div class="zone-labels">
+        <div>Zone 1 : Origine</div>
+        <div>Zone 2 : Bordure</div>
+        <div>Zone 3 : Transit</div>
+        <div>Zone 4 : Réception</div>
+        <div>Zone 5 : Cœur</div>
+        <div>Zone 6 : Interface</div>
+    </div>
+    
+    <div class="map-container">
+        
+        <div class="latency-indicator">
+            <i class="fa-solid fa-clock"></i> LATENCE : 14 MIN
+        </div>
+
+        <!-- SVG Connections (Background) -->
+        <svg class="connections">
+            <!-- Line 1 to 2 -->
+            <path d="M 100 100 L 250 100" class="connection-active" />
+            <!-- Line 2 to 3 -->
+            <path d="M 300 100 L 450 100" class="connection-active" />
+            <!-- Line 3 to 4 -->
+            <path d="M 500 100 L 650 100" class="connection-line" />
+            <!-- Line 4 to 5 -->
+            <path d="M 700 100 L 850 100" class="connection-line" />
+            <!-- Line 5 to 6 -->
+            <path d="M 900 100 L 1050 100" class="connection-active" />
+        </svg>
+
+        <!-- 1. MARS SURFACE -->
+        <div class="node" style="border-bottom: 3px solid #ff6b6b;">
+            <div class="node-header">
+                <div class="icon-box mars-color"><i class="fa-solid fa-robot"></i></div>
+                <div class="node-title">CAPTEURS ROVER</div>
+            </div>
+            <ul class="data-list">
+                <li>
+                    IMAGES BRUTES
+                    <span class="data-tag">BAYER</span>
+                </li>
+                <li>
+                    TÉLÉMÉTRIE
+                    <span class="data-tag">HEX</span>
+                </li>
+                <li>
+                    SPECTROMÉTRIE
+                    <span class="data-tag">BIN</span>
+                </li>
+            </ul>
+            <div class="tech-stack">
+                Stack: <span>Emb. Linux / C++</span><br>
+                Vol: 500MB / Sol
+            </div>
+        </div>
+
+        <!-- 2. ROVER EDGE -->
+        <div class="node" style="border-bottom: 3px solid #ff6b6b;">
+            <div class="node-header">
+                <div class="icon-box mars-color"><i class="fa-solid fa-microchip"></i></div>
+                <div class="node-title">CALCUL EN BORDURE</div>
+            </div>
+            <ul class="data-list">
+                <li>
+                    COMPRESSION
+                    <span class="data-tag">ICER</span>
+                </li>
+                <li>
+                    PRIORISATION
+                    <span class="data-tag">FILE</span>
+                </li>
+                <li>
+                    PAQUETISATION
+                    <span class="data-tag">CCSDS</span>
+                </li>
+            </ul>
+            <div class="tech-stack">
+                Stack: <span>FPGA / RTOS</span><br>
+                Action: Buffer
+            </div>
+        </div>
+
+        <!-- 3. ORBITER RELAY -->
+        <div class="node" style="border-bottom: 3px solid #a29bfe;">
+            <div class="node-header">
+                <div class="icon-box space-color"><i class="fa-solid fa-satellite"></i></div>
+                <div class="node-title">RELAIS UHF</div>
+            </div>
+            <ul class="data-list">
+                <li>
+                    LIAISON MONTANTE
+                    <span class="data-tag">UHF</span>
+                </li>
+                <li>
+                    STOCKAGE & TRANSFERT
+                    <span class="data-tag">MÉM</span>
+                </li>
+                <li>
+                    LIAISON DESCENDANTE
+                    <span class="data-tag">X-BAND</span>
+                </li>
+            </ul>
+            <div class="tech-stack">
+                Réf: <span>MRO / ODYSSEY</span><br>
+                Fenêtre: ~10 min
+            </div>
+        </div>
+
+        <!-- 4. DEEP SPACE NETWORK -->
+        <div class="node" style="border-bottom: 3px solid var(--neon-cyan);">
+            <div class="node-header">
+                <div class="icon-box earth-color"><i class="fa-solid fa-satellite-dish"></i></div>
+                <div class="node-title">DSN TERRE</div>
+            </div>
+            <ul class="data-list">
+                <li>
+                    DÉMOD SIGNAL
+                    <span class="data-tag">RF</span>
+                </li>
+                <li>
+                    CORR. ERREUR
+                    <span class="data-tag">FEC</span>
+                </li>
+                <li>
+                    TRAME BRUTE
+                    <span class="data-tag">SFDU</span>
+                </li>
+            </ul>
+            <div class="tech-stack">
+                Loc: <span>Madrid/Goldstone</span><br>
+                Proto: Transfert TCP/IP
+            </div>
+        </div>
+
+        <!-- 5. PROCESSING CORE -->
+        <div class="node" style="border-bottom: 3px solid var(--neon-pink);">
+            <div class="node-header">
+                <div class="icon-box process-color"><i class="fa-solid fa-server"></i></div>
+                <div class="node-title">DATA LAKE JPL</div>
+            </div>
+            <ul class="data-list">
+                <li>
+                    DÉCODAGE PDS4
+                    <span class="data-tag">XML</span>
+                </li>
+                <li>
+                    PIPELINE ETL
+                    <span class="data-tag">BATCH</span>
+                </li>
+                <li>
+                    CLASSIFICATION IA
+                    <span class="data-tag">IA</span>
+                </li>
+            </ul>
+            <div class="tech-stack">
+                Stack: <span>AWS S3 / Airflow</span><br>
+                <span>Spark / Python</span>
+            </div>
+        </div>
+
+        <!-- 6. VISUALIZATION -->
+        <div class="node" style="border-bottom: 3px solid var(--neon-green);">
+            <div class="node-header">
+                <div class="icon-box viz-color"><i class="fa-solid fa-desktop"></i></div>
+                <div class="node-title">OPS MISSION</div>
+            </div>
+            <ul class="data-list">
+                <li>
+                    TERRAIN 3D
+                    <span class="data-tag">WASM</span>
+                </li>
+                <li>
+                    TÉLÉMÉTRIE
+                    <span class="data-tag">REST</span>
+                </li>
+                <li>
+                    LOGS SCIENTIFIQUES
+                    <span class="data-tag">JSON</span>
+                </li>
+            </ul>
+            <div class="tech-stack">
+                Stack: <span>React / CesiumJS</span><br>
+                <span>Grafana / D3</span>
+            </div>
+        </div>
+
+    </div>
+
+    <div style="margin-top: 60px; color: #555; font-family: 'Share Tech Mono'; font-size: 0.8rem;">
+        // FIN DE LA CARTE DE FLUX // CONNEXION SÉCURISÉE ÉTABLIE
+    </div>
+
+</body>
+</html>

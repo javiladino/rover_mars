@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chronologie de Transmission : Mars vers Terre</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #050505;
+            --bg-card: #0e0e16;
+            --mars-red: #ff5e3a;
+            --neon-blue: #00f3ff;
+            --neon-purple: #bc13fe;
+            --text-main: #e0e0e0;
+            --timeline-line: #333;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            background-image: radial-gradient(circle at top, #1a1a2e 0%, #000 70%);
+        }
+
+        h1 {
+            font-family: 'Share Tech Mono', monospace;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            margin-bottom: 5px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: var(--neon-blue);
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 1.1rem;
+            margin-bottom: 60px;
+            text-align: center;
+            opacity: 0.8;
+        }
+
+        /* CONTAINER */
+        .infographic-container {
+            max-width: 1000px;
+            width: 100%;
+            position: relative;
+        }
+
+        /* LIGHT SPEED SCALE (Top Bar) */
+        .light-speed-bar {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--neon-blue);
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+        }
+
+        .light-speed-bar::before {
+            content: 'VITESSE DE LA LUMIÈRE (SIGNAL)';
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: var(--bg-dark);
+            padding: 0 10px;
+            color: var(--neon-blue);
+            font-family: 'Share Tech Mono';
+            font-size: 0.8rem;
+        }
+
+        .distance-info {
+            text-align: center;
+        }
+        
+        .distance-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .distance-label {
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .progress-track {
+            flex-grow: 1;
+            height: 4px;
+            background: #333;
+            margin: 0 30px;
+            position: relative;
+        }
+
+        .progress-fill {
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 50%; /* Just conceptual */
+            background: linear-gradient(90deg, var(--mars-red), var(--neon-blue));
+            box-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        /* TIMELINE STEPS */
+        .timeline {
+            position: relative;
+            padding-left: 50px;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 19px; /* center of dot */
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--timeline-line);
+        }
+
+        .step {
+            position: relative;
+            margin-bottom: 50px;
+            background: var(--bg-card);
+            border: 1px solid #333;
+            padding: 25px;
+            border-radius: 0 10px 10px 10px;
+            transition: transform 0.3s;
+        }
+
+        .step:hover {
+            transform: translateX(10px);
+            border-color: var(--neon-purple);
+            box-shadow: -5px 5px 20px rgba(188, 19, 254, 0.1);
+        }
+
+        /* Step Dot */
+        .step::after {
+            content: '';
+            position: absolute;
+            left: -36px;
+            top: 25px;
+            width: 12px;
+            height: 12px;
+            background: var(--bg-dark);
+            border: 2px solid var(--neon-blue);
+            border-radius: 50%;
+            z-index: 2;
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 10px;
+        }
+
+        .step-icon {
+            font-size: 1.5rem;
+            color: var(--neon-blue);
+            width: 40px;
+            text-align: center;
+        }
+
+        .step-title {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: white;
+            text-transform: uppercase;
+        }
+
+        .step-time {
+            margin-left: auto;
+            font-family: 'Share Tech Mono';
+            color: var(--mars-red);
+            border: 1px solid var(--mars-red);
+            padding: 4px 8px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+        }
+
+        .step-desc {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #bbb;
+        }
+
+        .highlight {
+            color: var(--neon-blue);
+            font-weight: 600;
+        }
+
+        /* TOTAL TIME CARD */
+        .total-card {
+            background: linear-gradient(45deg, rgba(188, 19, 254, 0.1), rgba(0, 0, 0, 0));
+            border: 2px solid var(--neon-purple);
+            padding: 30px;
+            text-align: center;
+            margin-top: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .total-card h2 {
+            font-size: 2.5rem;
+            margin: 10px 0;
+            color: white;
+            text-shadow: 0 0 10px var(--neon-purple);
+        }
+
+        .total-card span {
+            font-family: 'Share Tech Mono';
+            color: var(--neon-purple);
+            letter-spacing: 2px;
+        }
+
+        /* ANIMATION PULSE */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 243, 255, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(0, 243, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 243, 255, 0); }
+        }
+
+        .step:hover::after {
+            background: var(--neon-blue);
+            animation: pulse 1.5s infinite;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>LE VOYAGE D'UNE DONNÉE</h1>
+    <div class="subtitle">CHRONOLOGIE DE TRANSMISSION : MARS <i class="fa-solid fa-arrow-right-long"></i> TERRE</div>
+
+    <div class="infographic-container">
+
+        <!-- LIGHT SPEED CONTEXT -->
+        <div class="light-speed-bar">
+            <div class="distance-info">
+                <div class="distance-value">3 min</div>
+                <div class="distance-label">Minimum (Opposition)</div>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill"></div>
+                <div style="position: absolute; top: -20px; width: 100%; text-align: center; color: var(--neon-blue); font-size: 0.8rem; font-family: 'Share Tech Mono';">
+                    MOYENNE ~11 MIN 22 SEC
+                </div>
+            </div>
+            <div class="distance-info">
+                <div class="distance-value">22 min</div>
+                <div class="distance-label">Maximum (Conjonction)</div>
+            </div>
+        </div>
+
+        <div class="timeline">
+
+            <!-- STEP 1: CAPTURE -->
+            <div class="step" style="border-left: 4px solid var(--mars-red);">
+                <div class="step-header">
+                    <div class="step-icon"><i class="fa-solid fa-camera"></i></div>
+                    <div class="step-title">1. CAPTURE DE L'IMAGE</div>
+                    <div class="step-time">T = 0</div>
+                </div>
+                <div class="step-desc">
+                    Le rover prend la photo sur Mars. Les fichiers (souvent lourds) sont stockés dans la mémoire locale en attente d'une fenêtre de transmission.
+                </div>
+            </div>
+
+            <!-- STEP 2: ORBITER UPLINK -->
+            <div class="step">
+                <div class="step-header">
+                    <div class="step-icon"><i class="fa-solid fa-satellite"></i></div>
+                    <div class="step-title">2. LIAISON VERS L'ORBITEUR</div>
+                    <div class="step-time">+8 MIN (Fenêtre)</div>
+                </div>
+                <div class="step-desc">
+                    Transmission vers <span class="highlight">MRO</span> ou <span class="highlight">Odyssey</span>. Les orbiteurs ne passent au-dessus du rover que pendant environ <strong>8 minutes</strong> par sol (jour martien).
+                    <br><small style="color: #888;">Débit : 100 à 250 Mbits par passage.</small>
+                </div>
+            </div>
+
+            <!-- STEP 3: INTERPLANETARY -->
+            <div class="step">
+                <div class="step-header">
+                    <div class="step-icon"><i class="fa-solid fa-wifi"></i></div>
+                    <div class="step-title">3. RETRANSMISSION VERS LA TERRE</div>
+                    <div class="step-time">+11 MIN (Moyenne)</div>
+                </div>
+                <div class="step-desc">
+                    L'orbiteur relaie les données à travers le vide spatial vers les antennes du <span class="highlight">Deep Space Network (DSN)</span>. C'est ici que la vitesse de la lumière impose son délai incompressible.
+                </div>
+            </div>
+
+            <!-- STEP 4: PROCESSING -->
+            <div class="step">
+                <div class="step-header">
+                    <div class="step-icon"><i class="fa-solid fa-server"></i></div>
+                    <div class="step-title">4. TRAITEMENT AU SOL</div>
+                    <div class="step-time">+1 MIN</div>
+                </div>
+                <div class="step-desc">
+                    Une fois reçus par le DSN, les paquets voyagent via câbles et serveurs vers le JPL. Le décodage, l'assemblage et le traitement initial prennent environ une minute supplémentaire.
+                </div>
+            </div>
+
+        </div>
+
+        <!-- TOTAL TIME SUMMARY -->
+        <div class="total-card">
+            <span>DÉLAI TOTAL ESTIMÉ (DONNÉES COMPLÈTES)</span>
+            <h2>3 à 4 HEURES</h2>
+            <p style="color: #aaa; margin: 0;">
+                Pour un lot complet de données haute résolution (images + audio), en tenant compte de la disponibilité des orbiteurs et de la rotation de Mars.
+            </p>
+        </div>
+
+    </div>
+
+</body>
+</html>
