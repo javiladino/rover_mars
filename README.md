@@ -129,3 +129,17 @@ Si eres reclutador, educador o agencia interesada, puedes contactarme en [javier
 ---
 
 **¡Explora Marte, construyendo desde la Tierra!**
+
+```mermaid
+gitGraph
+    commit
+    commit
+    branch develop
+    checkout develop
+    commit
+    commit
+    checkout main
+    merge develop
+    commit
+    commit
+```
