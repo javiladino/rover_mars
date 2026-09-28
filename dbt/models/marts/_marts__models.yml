@@ -1,0 +1,20 @@
+version: 2
+
+models:
+  - name: dim_dsn_stations
+    description: Dimensión de estaciones terrestres de la Deep Space Network.
+    columns:
+      - name: dsn_station
+        tests: [unique, not_null]
+
+  - name: fct_sol_filter_coverage
+    description: Cobertura multiespectral por sol (imágenes por filtro/cámara).
+    columns:
+      - name: sol
+        tests: [unique, not_null]
+
+  - name: fct_sol_summary
+    description: Resumen Gold por sol — imágenes + telemetría combinadas.
+    columns:
+      - name: sol
+        tests: [unique, not_null]

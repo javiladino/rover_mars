@@ -1,0 +1,4 @@
+dsn_station,antenna_id,location_country,antenna_diameter_m,longitude_deg,latitude_deg
+Goldstone,DSS-14,United States,70,-116.89,35.43
+Madrid,DSS-63,Spain,70,-4.25,40.43
+Canberra,DSS-43,Australia,70,148.98,-35.40

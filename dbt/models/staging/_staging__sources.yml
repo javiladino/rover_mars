@@ -1,0 +1,28 @@
+version: 2
+
+sources:
+  - name: rover_mars_raw
+    description: >
+      Tablas cargadas directamente por la tarea update_postgis del DAG de
+      Airflow (airflow/dags/mastcamz_pipeline.py). Son el "Silver" relacional
+      del proyecto — dbt las toma como fuente para construir la capa Gold
+      declarativa (ADR-001, docs/ANALISIS_MODERN_DATA_STACK.md).
+    schema: public
+    tables:
+      - name: image_products
+        description: Catálogo de productos de imagen Mastcam-Z (un registro por EDR/RDR).
+        columns:
+          - name: product_id
+            description: Identificador lógico PDS4, único por producto.
+            tests: [unique, not_null]
+          - name: sol
+            tests: [not_null]
+          - name: camera_eye
+            tests:
+              - accepted_values:
+                  values: ['LEFT', 'RIGHT']
+      - name: telemetry_records
+        description: Telemetría ambiental y de posición estilo MEDA, un registro por muestra.
+        columns:
+          - name: sol
+            tests: [not_null]

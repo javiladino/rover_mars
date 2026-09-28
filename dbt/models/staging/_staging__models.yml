@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: stg_image_products
+    description: Vista de staging sobre image_products, con nombres y tipos normalizados.
+    columns:
+      - name: image_product_pk
+        tests: [unique, not_null]
+      - name: sol
+        tests: [not_null]
+
+  - name: stg_telemetry_records
+    description: Vista de staging sobre telemetry_records.
+    columns:
+      - name: telemetry_pk
+        tests: [unique, not_null]
+      - name: sol
+        tests: [not_null]

@@ -1,5 +1,58 @@
-*.sln
+# ── Secrets / entorno ──────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.tfvars
+!*.tfvars.example
+.aws/
 
-/bin
-/obj
+# ── Python ─────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+coverage.xml
 
+# ── dbt ────────────────────────────────────────────────────
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+~/.dbt/
+
+# ── Terraform ──────────────────────────────────────────────
+# .terraform.lock.hcl SÍ se versiona (recomendación oficial de HashiCorp,
+# fija las versiones exactas de provider) — solo se ignora la caché local.
+infra/**/.terraform/
+infra/**/terraform.tfstate
+infra/**/terraform.tfstate.backup
+infra/**/*.tfplan
+
+# ── Datos generados por la simulación (no versionar) ────────
+data/raw/*
+data/bronze/*
+data/silver/*
+data/gold/*
+!data/raw/.gitkeep
+!data/bronze/.gitkeep
+!data/silver/.gitkeep
+!data/gold/.gitkeep
+
+# ── Airflow ──────────────────────────────────────────────────
+airflow/logs/
+airflow/plugins/__pycache__/
+
+# ── Docker / SO ────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── IDE ──────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+.idea/

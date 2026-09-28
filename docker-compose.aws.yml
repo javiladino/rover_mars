@@ -1,0 +1,204 @@
+version: "3.9"
+
+# ============================================================
+# Rover Mars — Variante de despliegue en AWS (Opción C, ADR-011 a ADR-020)
+#
+# Se ejecuta en el EC2 provisionado por infra/aws/ec2.tf. A diferencia de
+# docker-compose.yml (todo local), aquí NO se levantan contenedores de
+# postgres ni minio: se apunta a RDS (ADR-013) y a S3 real (ADR-012),
+# ambos ya provisionados por Terraform.
+#
+# Uso (en el EC2, tras `git clone` + `cp .env.example .env` + editar .env
+# con los outputs de `terraform output`):
+#   docker compose -f docker-compose.aws.yml up --build -d
+#
+# Ver docs/GUIA_IMPLEMENTACION_MODERN_DATA_STACK.md — Fase 4.
+# ============================================================
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: airflow/Dockerfile
+  environment:
+    &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://${RDS_USER}:${RDS_PASSWORD}@${RDS_ENDPOINT}/airflow"
+    AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW_FERNET_KEY}"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth"
+    PYTHONPATH: "/opt/airflow/plugins:/opt/airflow/common"
+    MINIO_ENDPOINT: "s3.amazonaws.com"
+    MINIO_SECURE: "true"
+    MINIO_ACCESS_KEY: "${AWS_ACCESS_KEY_ID}"
+    MINIO_SECRET_KEY: "${AWS_SECRET_ACCESS_KEY}"
+    AWS_REGION: "${AWS_REGION:-us-east-1}"
+    KAFKA_BOOTSTRAP: "kafka:9092"
+    POSTGRES_CONN: "postgresql://${RDS_USER}:${RDS_PASSWORD}@${RDS_ENDPOINT}/rover_mars"
+    NASA_API_KEY: "${NASA_API_KEY:-DEMO_KEY}"
+    DBT_PROJECT_DIR: "/opt/airflow/dbt"
+    DBT_PROFILES_DIR: "/opt/airflow/dbt"
+    DBT_POSTGRES_HOST: "${RDS_HOST}"
+    DBT_POSTGRES_PORT: "5432"
+    DBT_POSTGRES_USER: "${RDS_USER}"
+    DBT_POSTGRES_PASSWORD: "${RDS_PASSWORD}"
+    DBT_POSTGRES_DB: "rover_mars"
+    DBT_POSTGRES_SCHEMA: "science"
+    SNS_ALERTS_TOPIC_ARN: "${SNS_ALERTS_TOPIC_ARN}"
+    S3_BUCKET_RAW: "${S3_BUCKET_RAW}"
+    S3_BUCKET_BRONZE: "${S3_BUCKET_BRONZE}"
+    S3_BUCKET_SILVER: "${S3_BUCKET_SILVER}"
+    S3_BUCKET_GOLD: "${S3_BUCKET_GOLD}"
+    S3_BUCKET_PDS4: "${S3_BUCKET_PDS4}"
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./dbt:/opt/airflow/dbt
+    - ./data:/opt/airflow/data
+    - airflow_logs:/opt/airflow/logs
+  depends_on:
+    kafka:
+      condition: service_healthy
+  networks:
+    - rover_net
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    networks: [rover_net]
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CREATE_TOPICS: >
+        mastcamz.raw.images:3:1,
+        mastcamz.telemetry:3:1,
+        mastcamz.ccsds.packets:3:1,
+        dsn.ground.received:3:1,
+        etl.bronze.ready:3:1,
+        etl.silver.ready:3:1
+    ports: ["29092:29092"]
+    volumes: [kafka_data:/var/lib/kafka/data]
+    networks: [rover_net]
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  kafka_ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: rover-mars-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    ports: ["8085:8080"]
+    networks: [rover_net]
+
+  airflow_webserver:
+    <<: *airflow-common
+    command: webserver
+    ports: ["8080:8080"]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  airflow_scheduler:
+    <<: *airflow-common
+    command: scheduler
+
+  airflow_init:
+    <<: *airflow-common
+    command: >
+      bash -c "airflow db migrate &&
+               airflow users create --username ${AIRFLOW_ADMIN_USER:-admin} --firstname Admin --lastname User
+                 --role Admin --email admin@rover.mars --password ${AIRFLOW_ADMIN_PASSWORD}"
+    restart: "no"
+
+  jupyter:
+    image: jupyter/scipy-notebook:python-3.11
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: "${JUPYTER_TOKEN}"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data:/home/jovyan/data
+      - ./simulator:/home/jovyan/simulator
+    ports: ["8888:8888"]
+    networks: [rover_net]
+
+  rover_simulator:
+    build: { context: ., dockerfile: simulator/Dockerfile }
+    environment:
+      KAFKA_BOOTSTRAP: "kafka:9092"
+      MINIO_ENDPOINT: "s3.amazonaws.com"
+      MINIO_SECURE: "true"
+      MINIO_ACCESS_KEY: "${AWS_ACCESS_KEY_ID}"
+      MINIO_SECRET_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET_RAW: "${S3_BUCKET_RAW}"
+      S3_BUCKET_PDS4: "${S3_BUCKET_PDS4}"
+      NASA_API_KEY: "${NASA_API_KEY:-DEMO_KEY}"
+      SIMULATION_SOL_START: "${SIMULATION_SOL_START:-1}"
+      SIMULATION_INTERVAL_SEC: "${SIMULATION_INTERVAL_SEC:-30}"
+      JEZERO_LAT: "${JEZERO_LAT:-18.4447}"
+      JEZERO_LON: "${JEZERO_LON:-77.4508}"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: [rover_net]
+    restart: unless-stopped
+
+  dsn_receiver:
+    build: { context: ., dockerfile: ingestion/Dockerfile }
+    environment:
+      KAFKA_BOOTSTRAP: "kafka:9092"
+      MINIO_ENDPOINT: "s3.amazonaws.com"
+      MINIO_SECURE: "true"
+      MINIO_ACCESS_KEY: "${AWS_ACCESS_KEY_ID}"
+      MINIO_SECRET_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET_BRONZE: "${S3_BUCKET_BRONZE}"
+      POSTGRES_CONN: "postgresql://${RDS_USER}:${RDS_PASSWORD}@${RDS_ENDPOINT}/rover_mars"
+      DSN_STATION: "${DSN_STATION:-Goldstone}"
+      LIGHT_DELAY_MIN_MIN: "${LIGHT_DELAY_MIN_MIN:-3}"
+      LIGHT_DELAY_MAX_MIN: "${LIGHT_DELAY_MAX_MIN:-22}"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: [rover_net]
+    restart: unless-stopped
+
+volumes:
+  zookeeper_data:
+  kafka_data:
+  airflow_logs:
+
+networks:
+  rover_net:
+    driver: bridge

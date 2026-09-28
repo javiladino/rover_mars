@@ -1,0 +1,17 @@
+# Profile de dbt para el proyecto rover_mars.
+# No contiene credenciales: todos los valores vienen de variables de entorno
+# ya definidas en docker-compose.yml (ADR-004, docs/ANALISIS_MODERN_DATA_STACK.md).
+# Por eso es seguro versionarlo en git (a diferencia del profiles.yml por defecto
+# de dbt, que normalmente vive fuera del repo en ~/.dbt/).
+rover_mars:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_POSTGRES_HOST', 'localhost') }}"
+      port: "{{ env_var('DBT_POSTGRES_PORT', '5432') | int }}"
+      user: "{{ env_var('DBT_POSTGRES_USER', 'rover') }}"
+      password: "{{ env_var('DBT_POSTGRES_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_POSTGRES_DB', 'rover_mars') }}"
+      schema: "{{ env_var('DBT_POSTGRES_SCHEMA', 'science') }}"
+      threads: 4

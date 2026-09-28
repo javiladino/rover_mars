@@ -1,0 +1,7 @@
+# Herramientas de desarrollo y CI (no se instalan en las imágenes de producción)
+pytest>=8.2.0
+pytest-cov>=5.0.0
+ruff>=0.5.0
+
+# Requerida por tests/test_storage.py (construye un cliente MinIO, sin conectarse a nada)
+minio>=7.2.7

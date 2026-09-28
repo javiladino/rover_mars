@@ -1,0 +1,341 @@
+version: "3.9"
+
+# ============================================================
+# Rover Mars – Data Engineering Simulation
+# Replica del pipeline NASA Mastcam-Z / Mars 2020 Perseverance
+# ============================================================
+
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: airflow/Dockerfile
+  environment:
+    &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    AIRFLOW__CORE__FERNET_KEY: "${AIRFLOW_FERNET_KEY}"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth"
+    PYTHONPATH: "/opt/airflow/plugins:/opt/airflow/common"
+    MINIO_ENDPOINT: "${MINIO_ENDPOINT:-http://minio:9000}"
+    MINIO_SECURE: "${MINIO_SECURE:-false}"
+    MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY:-minioadmin}"
+    MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
+    AWS_REGION: "${AWS_REGION:-us-east-1}"
+    KAFKA_BOOTSTRAP: "kafka:9092"
+    POSTGRES_CONN: "postgresql://${POSTGRES_USER:-rover}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-rover_mars}"
+    NASA_API_KEY: "${NASA_API_KEY:-DEMO_KEY}"
+    DBT_PROJECT_DIR: "/opt/airflow/dbt"
+    DBT_PROFILES_DIR: "/opt/airflow/dbt"
+    DBT_POSTGRES_HOST: "postgres"
+    DBT_POSTGRES_PORT: "5432"
+    DBT_POSTGRES_USER: "${POSTGRES_USER:-rover}"
+    DBT_POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    DBT_POSTGRES_DB: "${POSTGRES_DB:-rover_mars}"
+    DBT_POSTGRES_SCHEMA: "science"
+    S3_BUCKET_RAW: "${S3_BUCKET_RAW:-mastcamz-raw}"
+    S3_BUCKET_BRONZE: "${S3_BUCKET_BRONZE:-mastcamz-bronze}"
+    S3_BUCKET_SILVER: "${S3_BUCKET_SILVER:-mastcamz-silver}"
+    S3_BUCKET_GOLD: "${S3_BUCKET_GOLD:-mastcamz-gold}"
+    S3_BUCKET_PDS4: "${S3_BUCKET_PDS4:-mastcamz-pds4}"
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./dbt:/opt/airflow/dbt
+    - ./data:/opt/airflow/data
+    - airflow_logs:/opt/airflow/logs
+  depends_on:
+    postgres:
+      condition: service_healthy
+    kafka:
+      condition: service_healthy
+    minio:
+      condition: service_healthy
+  networks:
+    - rover_net
+
+services:
+
+  # ─── ZOOKEEPER ───────────────────────────────────────────
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: rover_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - rover_net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── KAFKA (Simulación canal DSN / CCSDS) ────────────────
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: rover_kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      # Topics Mastcam-Z
+      KAFKA_CREATE_TOPICS: >
+        mastcamz.raw.images:3:1,
+        mastcamz.telemetry:3:1,
+        mastcamz.ccsds.packets:3:1,
+        dsn.ground.received:3:1,
+        etl.bronze.ready:3:1,
+        etl.silver.ready:3:1
+    ports:
+      - "29092:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - rover_net
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # ─── KAFKA UI ─────────────────────────────────────────────
+  kafka_ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: rover_kafka_ui
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_CLUSTERS_0_NAME: rover-mars-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    ports:
+      - "8085:8080"
+    networks:
+      - rover_net
+
+  # ─── POSTGRESQL + POSTGIS ─────────────────────────────────
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: rover_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-rover}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-rover_mars}
+      POSTGRES_MULTIPLE_DATABASES: "${POSTGRES_DB:-rover_mars},airflow"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01_init.sql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/02_schema.sql
+    ports:
+      - "5432:5432"
+    networks:
+      - rover_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rover} -d ${POSTGRES_DB:-rover_mars}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── MINIO (Data Lake S3-compatible) ──────────────────────
+  minio:
+    image: minio/minio:RELEASE.2024-04-18T19-09-19Z
+    container_name: rover_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_DEFAULT_BUCKETS: "mastcamz-raw,mastcamz-bronze,mastcamz-silver,mastcamz-gold,mastcamz-pds4"
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - rover_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # ─── MINIO INIT (crea buckets y políticas) ─────────────────
+  minio_init:
+    image: minio/mc:latest
+    container_name: rover_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+    entrypoint: >
+      /bin/sh -c "
+      /usr/bin/mc alias set myminio http://minio:9000 $$MINIO_ACCESS_KEY $$MINIO_SECRET_KEY;
+      /usr/bin/mc mb --ignore-existing myminio/mastcamz-raw;
+      /usr/bin/mc mb --ignore-existing myminio/mastcamz-bronze;
+      /usr/bin/mc mb --ignore-existing myminio/mastcamz-silver;
+      /usr/bin/mc mb --ignore-existing myminio/mastcamz-gold;
+      /usr/bin/mc mb --ignore-existing myminio/mastcamz-pds4;
+      /usr/bin/mc anonymous set download myminio/mastcamz-gold;
+      echo 'MinIO buckets ready';
+      exit 0;
+      "
+    networks:
+      - rover_net
+
+  # ─── AIRFLOW WEBSERVER ────────────────────────────────────
+  airflow_webserver:
+    <<: *airflow-common
+    container_name: rover_airflow_web
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ─── AIRFLOW SCHEDULER ────────────────────────────────────
+  airflow_scheduler:
+    <<: *airflow-common
+    container_name: rover_airflow_scheduler
+    command: scheduler
+    healthcheck:
+      test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $(hostname)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ─── AIRFLOW INIT ─────────────────────────────────────────
+  airflow_init:
+    <<: *airflow-common
+    container_name: rover_airflow_init
+    command: >
+      bash -c "airflow db migrate &&
+               airflow users create --username ${AIRFLOW_ADMIN_USER:-admin} --firstname Admin --lastname User
+                 --role Admin --email admin@rover.mars --password ${AIRFLOW_ADMIN_PASSWORD}"
+    restart: "no"
+
+  # ─── GRAFANA (Telemetry Dashboards) ───────────────────────
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: rover_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_INSTALL_PLUGINS: grafana-worldmap-panel,grafana-piechart-panel
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/rover_telemetry.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+    ports:
+      - "3001:3000"
+    depends_on:
+      - postgres
+    networks:
+      - rover_net
+
+  # ─── JUPYTER (Análisis y ML) ──────────────────────────────
+  jupyter:
+    image: jupyter/scipy-notebook:python-3.11
+    container_name: rover_jupyter
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: "${JUPYTER_TOKEN}"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+      - ./data:/home/jovyan/data
+      - ./simulator:/home/jovyan/simulator
+    ports:
+      - "8888:8888"
+    networks:
+      - rover_net
+
+  # ─── ROVER SIMULATOR (genera datos Mastcam-Z) ─────────────
+  rover_simulator:
+    build:
+      context: .
+      dockerfile: simulator/Dockerfile
+    container_name: rover_mastcamz_simulator
+    environment:
+      KAFKA_BOOTSTRAP: "kafka:9092"
+      MINIO_ENDPOINT: "${MINIO_ENDPOINT:-http://minio:9000}"
+      MINIO_SECURE: "${MINIO_SECURE:-false}"
+      MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY:-minioadmin}"
+      MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET_RAW: "${S3_BUCKET_RAW:-mastcamz-raw}"
+      S3_BUCKET_PDS4: "${S3_BUCKET_PDS4:-mastcamz-pds4}"
+      NASA_API_KEY: "${NASA_API_KEY:-DEMO_KEY}"
+      SIMULATION_SOL_START: "${SIMULATION_SOL_START:-1}"
+      SIMULATION_INTERVAL_SEC: "${SIMULATION_INTERVAL_SEC:-30}"
+      JEZERO_LAT: "${JEZERO_LAT:-18.4447}"
+      JEZERO_LON: "${JEZERO_LON:-77.4508}"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+    networks:
+      - rover_net
+    restart: unless-stopped
+
+  # ─── DSN RECEIVER (Goldstone / Madrid / Canberra) ─────────
+  dsn_receiver:
+    build:
+      context: .
+      dockerfile: ingestion/Dockerfile
+    container_name: rover_dsn_receiver
+    environment:
+      KAFKA_BOOTSTRAP: "kafka:9092"
+      MINIO_ENDPOINT: "${MINIO_ENDPOINT:-http://minio:9000}"
+      MINIO_SECURE: "${MINIO_SECURE:-false}"
+      MINIO_ACCESS_KEY: "${MINIO_ACCESS_KEY:-minioadmin}"
+      MINIO_SECRET_KEY: "${MINIO_SECRET_KEY}"
+      AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET_BRONZE: "${S3_BUCKET_BRONZE:-mastcamz-bronze}"
+      POSTGRES_CONN: "postgresql://${POSTGRES_USER:-rover}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-rover_mars}"
+      DSN_STATION: "${DSN_STATION:-Goldstone}"
+      LIGHT_DELAY_MIN_MIN: "${LIGHT_DELAY_MIN_MIN:-3}"
+      LIGHT_DELAY_MAX_MIN: "${LIGHT_DELAY_MAX_MIN:-22}"
+    depends_on:
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - rover_net
+    restart: unless-stopped
+
+volumes:
+  zookeeper_data:
+  kafka_data:
+  postgres_data:
+  minio_data:
+  airflow_logs:
+  grafana_data:
+
+networks:
+  rover_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

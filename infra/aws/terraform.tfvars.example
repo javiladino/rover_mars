@@ -1,0 +1,19 @@
+# Copiar a terraform.tfvars (no versionado, ver .gitignore) y completar.
+#   cp terraform.tfvars.example terraform.tfvars
+
+aws_region               = "us-east-1"
+environment               = "demo"
+project_prefix            = "rovermars"
+
+budget_monthly_limit_usd  = 40
+budget_alert_email        = "tu_correo@ejemplo.com"
+
+ec2_instance_type         = "t3.small"
+ec2_key_pair_name         = "tu-keypair-existente"
+ssh_allowed_cidr          = "TU_IP_PUBLICA/32"
+
+rds_instance_class        = "db.t3.micro"
+# rds_master_password se recomienda pasar por variable de entorno, NO aquí:
+#   export TF_VAR_rds_master_password="..."
+
+sns_alert_email            = "tu_correo@ejemplo.com"
