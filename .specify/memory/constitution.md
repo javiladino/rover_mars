@@ -1,3 +1,19 @@
+<!--
+SYNC IMPACT REPORT — Constitution Amendment
+============================================
+Version change    : (initial) → 1.0.0
+Modified sections : none (first ratification)
+Added sections    :
+  - Principios Fundamentales (I–VIII)
+  - Restricciones Técnicas y de Presentación
+  - Flujo de Trabajo Speckit
+  - Gobernanza
+Removed sections  : none
+Deferred TODOs    : none — all placeholders resolved from user input
+Review note       : Remove this comment block before committing to the repo.
+============================================
+-->
+
 # Constitución del Proyecto — Rover Mars
 
 Este documento gobierna cómo se especifica, planifica e implementa cualquier
