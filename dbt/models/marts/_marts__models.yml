@@ -1,6 +1,54 @@
 version: 2
 
 models:
+  - name: fct_meda_sol_summary
+    description: >
+      Gold mart — daily environmental statistics per Martian sol from MEDA sensor data.
+      Aggregates calibrated Silver readings into per-sol summaries for analytical consumption.
+    columns:
+      - name: sol
+        tests: [unique, not_null]
+      - name: temp_min_c
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: -120
+              max_value: 40
+      - name: temp_max_c
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: -120
+              max_value: 40
+      - name: temp_avg_c
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: -120
+              max_value: 40
+      - name: pressure_avg_hpa
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 120
+      - name: wind_speed_max_ms
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+      - name: uv_dose_wh_m2
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 240
+      - name: reading_count
+        tests: [not_null]
+      - name: anomaly_count
+        tests: [not_null]
+
   - name: dim_dsn_stations
     description: Dimensión de estaciones terrestres de la Deep Space Network.
     columns:

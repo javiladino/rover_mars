@@ -1,6 +1,38 @@
 version: 2
 
 sources:
+  - name: raw
+    description: >
+      Tablas Bronze MEDA cargadas por la tarea validate_bronze del DAG meda_pipeline.
+      Contiene metadatos de validación de paquetes CCSDS MEDA.
+    schema: raw
+    tables:
+      - name: meda_bronze_records
+        description: Metadatos de validación de paquetes CCSDS MEDA, un registro por paquete.
+        columns:
+          - name: packet_id
+            tests: [unique, not_null]
+          - name: sol
+            tests: [not_null]
+          - name: sensor_type
+            tests:
+              - accepted_values:
+                  values: ['ATS', 'PS', 'WS', 'UV', 'HS']
+
+  - name: science
+    description: >
+      Tablas Silver MEDA con lecturas calibradas, cargadas por update_silver_postgres
+      y enriquecidas por detect_anomalies en el DAG meda_pipeline.
+    schema: science
+    tables:
+      - name: meda_silver_readings
+        description: Lecturas calibradas MEDA consolidadas por instante de muestreo (sol, sclk).
+        columns:
+          - name: sol
+            tests: [not_null]
+          - name: sclk
+            tests: [not_null]
+
   - name: rover_mars_raw
     description: >
       Tablas cargadas directamente por la tarea update_postgis del DAG de

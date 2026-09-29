@@ -1,6 +1,22 @@
 version: 2
 
 models:
+  - name: stg_meda_bronze
+    description: Validated MEDA Bronze records — quarantined packets excluded.
+    columns:
+      - name: packet_id
+        tests: [unique, not_null]
+      - name: sol
+        tests: [not_null]
+
+  - name: stg_meda_silver
+    description: Calibrated MEDA Silver readings per sampling instant (sol, sclk).
+    columns:
+      - name: sol
+        tests: [not_null]
+      - name: sclk
+        tests: [not_null]
+
   - name: stg_image_products
     description: Vista de staging sobre image_products, con nombres y tipos normalizados.
     columns:

@@ -42,6 +42,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y postgresql-client
           psql "postgresql://rover:rover_ci@localhost:5432/rover_mars" -f database/init.sql
           psql "postgresql://rover:rover_ci@localhost:5432/rover_mars" -f database/schema.sql
+          psql "postgresql://rover:rover_ci@localhost:5432/rover_mars" -f database/meda_schema.sql
 
       - name: dbt deps
         working-directory: dbt

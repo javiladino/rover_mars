@@ -21,7 +21,10 @@ flowchart LR
     subgraph MARS["🔴 Mars — Jezero Crater"]
         CAM["📷 Mastcam-Z<br/>1648×1214 CCD, 16 filtros"]
         FPGA["⚡ CCSDS 133.0-B-2<br/>APID 0x01A5/0x01A6"]
+        MEDA_INST["🌡️ MEDA<br/>ATS/PS/WS/UV/HS"]
+        MEDA_FPGA["⚡ CCSDS 133.0-B-2<br/>APID 0x0C0–0x0C4"]
         CAM --> FPGA
+        MEDA_INST --> MEDA_FPGA
     end
     subgraph RELAY["🚀 Relay"]
         MRO["🛸 MRO — UHF"]
@@ -32,22 +35,41 @@ flowchart LR
         EDR["EDR → RDR → PDS4"]
     end
     subgraph SIM["💻 Stack de simulación (este repo)"]
-        KAFKA["Kafka"]
-        AIRFLOW["Airflow"]
-        DBT["dbt"]
-        LAKE["MinIO / S3<br/>Bronze→Silver→Gold"]
-        PG["PostGIS"]
-        KAFKA --> AIRFLOW --> DBT
-        AIRFLOW --> LAKE
-        AIRFLOW --> PG
+        subgraph KAFKA_LAYER["Kafka"]
+            KAFKA_MCZ["etl.bronze.ready<br/>(Mastcam-Z)"]
+            KAFKA_MEDA["telemetry.meda.raw<br/>(MEDA)"]
+        end
+        subgraph MCZ_PIPE["Pipeline Mastcam-Z"]
+            MCZ_DAG["Airflow: mastcamz_pipeline<br/>poll→validate→calibrate→silver→gold"]
+            MCZ_CALIB["calibration.py<br/>anomaly_rules.py"]
+        end
+        subgraph MEDA_PIPE["Pipeline MEDA"]
+            MEDA_DAG["Airflow: meda_pipeline<br/>poll→ingest→bronze→silver→gold"]
+            MEDA_CALIB["meda_calibration.py<br/>meda_anomaly_rules.py"]
+        end
+        DBT["dbt<br/>fct_sol_summary<br/>fct_meda_sol_summary"]
+        LAKE["MinIO / S3<br/>mastcamz-* / meda-*<br/>Raw→Bronze→Silver→Gold"]
+        PG["PostGIS<br/>image_products<br/>meda_bronze_records<br/>meda_silver_readings"]
+        KAFKA_MCZ --> MCZ_DAG
+        KAFKA_MEDA --> MEDA_DAG
+        MCZ_DAG --> MCZ_CALIB
+        MEDA_DAG --> MEDA_CALIB
+        MCZ_DAG --> DBT
+        MEDA_DAG --> DBT
+        MCZ_DAG --> LAKE
+        MEDA_DAG --> LAKE
+        MCZ_DAG --> PG
+        MEDA_DAG --> PG
     end
     subgraph VIZ["📊 Visualización"]
         GRAFANA["Grafana"]
         JUPYTER["JupyterHub"]
     end
     FPGA --> MRO
+    MEDA_FPGA --> MRO
     DSN --> EDR
-    EDR -.simulado vía.-> KAFKA
+    EDR -.simulado vía.-> KAFKA_MCZ
+    EDR -.simulado vía.-> KAFKA_MEDA
     PG --> GRAFANA
     LAKE --> JUPYTER
 ```

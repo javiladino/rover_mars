@@ -39,6 +39,9 @@ x-airflow-common: &airflow-common
     S3_BUCKET_SILVER: "${S3_BUCKET_SILVER:-mastcamz-silver}"
     S3_BUCKET_GOLD: "${S3_BUCKET_GOLD:-mastcamz-gold}"
     S3_BUCKET_PDS4: "${S3_BUCKET_PDS4:-mastcamz-pds4}"
+    MEDA_S3_BUCKET_RAW: "${MEDA_S3_BUCKET_RAW:-meda-raw}"
+    MEDA_S3_BUCKET_SILVER: "${MEDA_S3_BUCKET_SILVER:-meda-silver}"
+    MEDA_S3_BUCKET_GOLD: "${MEDA_S3_BUCKET_GOLD:-meda-gold}"
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/plugins:/opt/airflow/plugins
@@ -97,7 +100,8 @@ services:
         mastcamz.ccsds.packets:3:1,
         dsn.ground.received:3:1,
         etl.bronze.ready:3:1,
-        etl.silver.ready:3:1
+        etl.silver.ready:3:1,
+        telemetry.meda.raw:5:1
     ports:
       - "29092:29092"
     volumes:
@@ -139,6 +143,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init.sql:/docker-entrypoint-initdb.d/01_init.sql
       - ./database/schema.sql:/docker-entrypoint-initdb.d/02_schema.sql
+      - ./database/meda_schema.sql:/docker-entrypoint-initdb.d/03_meda_schema.sql
     ports:
       - "5432:5432"
     networks:
@@ -157,7 +162,7 @@ services:
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
-      MINIO_DEFAULT_BUCKETS: "mastcamz-raw,mastcamz-bronze,mastcamz-silver,mastcamz-gold,mastcamz-pds4"
+      MINIO_DEFAULT_BUCKETS: "mastcamz-raw,mastcamz-bronze,mastcamz-silver,mastcamz-gold,mastcamz-pds4,meda-raw,meda-bronze,meda-silver,meda-gold"
     volumes:
       - minio_data:/data
     ports:
@@ -190,6 +195,11 @@ services:
       /usr/bin/mc mb --ignore-existing myminio/mastcamz-gold;
       /usr/bin/mc mb --ignore-existing myminio/mastcamz-pds4;
       /usr/bin/mc anonymous set download myminio/mastcamz-gold;
+      /usr/bin/mc mb --ignore-existing myminio/meda-raw;
+      /usr/bin/mc mb --ignore-existing myminio/meda-bronze;
+      /usr/bin/mc mb --ignore-existing myminio/meda-silver;
+      /usr/bin/mc mb --ignore-existing myminio/meda-gold;
+      /usr/bin/mc anonymous set download myminio/meda-gold;
       echo 'MinIO buckets ready';
       exit 0;
       "
