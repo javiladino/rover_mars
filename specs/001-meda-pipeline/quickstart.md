@@ -29,7 +29,7 @@ docker compose ps
 ### Paso 1 — Iniciar el simulador MEDA
 
 ```bash
-docker compose exec simulator python meda_simulator.py \
+docker compose exec rover_simulator python meda_simulator.py \
   --seed 42 \
   --sols 1 \
   --topic telemetry.meda.raw \
@@ -45,7 +45,7 @@ Abrir Airflow UI en `http://localhost:8080` → DAG `meda_full_pipeline` → "Tr
 Alternativamente:
 
 ```bash
-docker compose exec airflow-scheduler \
+docker compose exec airflow_scheduler \
   airflow dags trigger meda_full_pipeline
 ```
 
@@ -53,11 +53,13 @@ docker compose exec airflow-scheduler \
 
 Abrir MinIO Console en `http://localhost:9001` → bucket `meda-raw` → verificar que existen objetos con estructura `{sol:04d}/{apid_hex}/{packet_id}.bin`.
 
-O vía CLI:
+O vía CLI (requiere `mc` instalado en tu máquina — la imagen `minio/minio` del
+servicio `minio` solo trae el servidor, no el cliente; en macOS: `brew install
+minio-mc`):
 
 ```bash
-docker compose exec minio \
-  mc ls local/meda-raw/ --recursive | head -20
+mc alias set rovermars http://localhost:9000 minioadmin minioadmin  # usar las credenciales reales de tu .env
+mc ls rovermars/meda-raw/ --recursive | head -20
 ```
 
 **Output esperado**: Al menos 5 objetos (uno por tipo de sensor), todos con tamaño > 0.
@@ -92,7 +94,7 @@ Zero filas con `quarantine_reason IS NOT NULL` en este escenario.
 
 ```bash
 # El simulador acepta --corrupt-crc para generar un paquete deliberadamente corrupto
-docker compose exec simulator python meda_simulator.py \
+docker compose exec rover_simulator python meda_simulator.py \
   --seed 99 --sols 1 --corrupt-crc 1 \
   --topic telemetry.meda.raw \
   --bootstrap kafka:9092
@@ -128,12 +130,12 @@ docker compose exec postgres psql -U rover -d rover_mars -c \
   "SELECT COUNT(*) as silver_count FROM science.meda_silver_readings;" >> state_before.txt
 
 # Re-enviar los mismos datos (misma semilla)
-docker compose exec simulator python meda_simulator.py \
+docker compose exec rover_simulator python meda_simulator.py \
   --seed 42 --sols 1 \
   --topic telemetry.meda.raw --bootstrap kafka:9092
 
 # Trigger del DAG nuevamente
-docker compose exec airflow-scheduler \
+docker compose exec airflow_scheduler \
   airflow dags trigger meda_full_pipeline
 
 # Capturar estado después
@@ -173,7 +175,7 @@ docker compose exec postgres psql -U rover -d rover_mars -c \
 
 ```bash
 # Ejecutar dbt build contra los datos Silver ya existentes
-docker compose exec airflow-worker bash -c \
+docker compose exec airflow_scheduler bash -c \
   "cd /opt/airflow/dbt && dbt build --select fct_meda_sol_summary"
 ```
 
@@ -197,15 +199,15 @@ docker compose exec postgres psql -U rover -d rover_mars -c \
 
 ```bash
 # Run 1
-docker compose exec simulator python meda_simulator.py \
+docker compose exec rover_simulator python meda_simulator.py \
   --seed 42 --sols 1 --dry-run --output /tmp/run1.bin
 
 # Run 2
-docker compose exec simulator python meda_simulator.py \
+docker compose exec rover_simulator python meda_simulator.py \
   --seed 42 --sols 1 --dry-run --output /tmp/run2.bin
 
 # Comparar
-docker compose exec simulator sha256sum /tmp/run1.bin /tmp/run2.bin
+docker compose exec rover_simulator sha256sum /tmp/run1.bin /tmp/run2.bin
 ```
 
 **Output esperado**: Los dos hashes SHA-256 son idénticos.
