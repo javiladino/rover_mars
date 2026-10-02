@@ -13,7 +13,7 @@
 - Ubuntu Server 24.04/26.04 LTS (la LTS vigente al momento de descargar —
   sin interfaz gráfica).
 - 8 GB de RAM → el stack completo entra, pero ajustado; esta guía incluye los
-  ajustes necesarios (Paso 6).
+  ajustes necesarios (Paso 7).
 - Acceso por SSH solo dentro de tu red local (LAN) — sin VPN ni exposición
   pública. Si más adelante querés acceso remoto desde fuera de casa o
   exponerlo públicamente para un reclutador, la Opción A completa de
@@ -68,7 +68,8 @@ Si falla por permisos, decime el error exacto antes de continuar.
 1. Descargá la ISO de **Ubuntu Server LTS** desde
    `ubuntu.com/download/server` (elegí la versión LTS más reciente que
    figure ahí — es la que trae 5 años de soporte).
-2. Descargá **balenaEtcher** (`etcher.balena.io`) para tu Mac — es la forma
+2. Descargá **balenaEtcher** (`
+`) para tu Mac — es la forma
    más simple y segura de crear el USB booteable sin riesgo de escribir al
    disco equivocado.
 3. Metés un USB de al menos 4 GB (se borra todo su contenido), abrís
@@ -199,66 +200,7 @@ docker compose version
 
 ---
 
-## Paso 6 — Preparar la máquina para 8 GB de RAM
-
-El stack completo (Kafka, Zookeeper, Postgres, MinIO, 3 contenedores de
-Airflow, Grafana, Jupyter, y los dos simuladores) pide bastante memoria. Con
-8 GB entra, pero sin margen de sobra — estos tres ajustes son los que marcan
-la diferencia entre que ande bien y que el kernel empiece a matar
-contenedores (OOM killer).
-
-### 6.1 — Agregar swap
-
-Ubuntu Server no crea swap por defecto en instalaciones con LVM moderno.
-Un archivo de swap de 4 GB te da margen para picos sin que nada se caiga de
-golpe (más lento que RAM si se usa mucho, pero mucho mejor que un
-contenedor matado abruptamente):
-
-```bash
-sudo fallocate -l 4G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-free -h    # deberías ver la línea Swap con 4.0Gi
-```
-
-### 6.2 — No levantar Jupyter por defecto
-
-Jupyter no participa de ningún pipeline (ningún DAG depende de él) — es solo
-para análisis exploratorio ad-hoc. En vez de incluirlo en el `docker compose
-up` de todos los días, levantalo solo cuando lo vayas a usar:
-
-```bash
-# Uso normal (sin Jupyter):
-docker compose up --build -d $(docker compose config --services | grep -v '^jupyter$')
-
-# Cuando quieras usar notebooks:
-docker compose up -d jupyter
-# y cuando termines:
-docker compose stop jupyter
-```
-
-### 6.3 — Acotar la memoria de Kafka
-
-La imagen de Kafka por defecto puede reservar más heap del necesario para
-este volumen de datos simulados. Esto es opcional pero recomendado en 8 GB —
-podés agregarlo editando `docker-compose.yml` en el servicio `kafka`:
-
-```yaml
-  kafka:
-    # ... lo que ya tiene ...
-    environment:
-      # ... las variables que ya tiene ...
-      KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
-```
-
-No hace falta tocar nada más — si en el Paso 7 ves que todo arranca bien sin
-este cambio, podés dejarlo para más adelante.
-
----
-
-## Paso 7 — Clonar el proyecto y configurar secretos
+## Paso 6 — Clonar el proyecto y configurar secretos
 
 ```bash
 sudo apt install -y git
@@ -266,7 +208,15 @@ git clone git@github.com:javiladino/rover_mars.git
 # Si no configuraste una clave SSH propia en este mini PC para GitHub, usá HTTPS:
 #   git clone https://github.com/javiladino/rover_mars.git
 cd rover_mars
+```
 
+A partir de acá, **todos los comandos `docker compose` de esta guía se
+corren parado dentro de esta carpeta** (`~/rover_mars`) — es donde vive
+`docker-compose.yml`. Si en algún paso siguiente ves el error `no
+configuration file provided: not found`, es señal de que te moviste de
+carpeta; volvé con `cd ~/rover_mars`.
+
+```bash
 cp .env.example .env
 nano .env
 ```
@@ -286,6 +236,68 @@ es solo una string, no hace falta que se genere en la misma máquina.)
 
 Pegá el resultado como valor de `AIRFLOW_FERNET_KEY` en el `.env`. Guardá con
 `Ctrl+O`, Enter, `Ctrl+X` si estás en `nano`.
+
+---
+
+## Paso 7 — Preparar la máquina para 8 GB de RAM
+
+El stack completo (Kafka, Zookeeper, Postgres, MinIO, 3 contenedores de
+Airflow, Grafana, Jupyter, y los dos simuladores) pide bastante memoria. Con
+8 GB entra, pero sin margen de sobra — estos tres ajustes son los que marcan
+la diferencia entre que ande bien y que el kernel empiece a matar
+contenedores (OOM killer). Se hacen ahora porque ya tenés el repo clonado
+(Paso 6) y `docker-compose.yml` existe en tu carpeta actual.
+
+### 7.1 — Agregar swap
+
+Ubuntu Server no crea swap por defecto en instalaciones con LVM moderno.
+Un archivo de swap de 4 GB te da margen para picos sin que nada se caiga de
+golpe (más lento que RAM si se usa mucho, pero mucho mejor que un
+contenedor matado abruptamente):
+
+```bash
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+free -h    # deberías ver la línea Swap con 4.0Gi
+```
+
+### 7.2 — No levantar Jupyter por defecto
+
+Jupyter no participa de ningún pipeline (ningún DAG depende de él) — es solo
+para análisis exploratorio ad-hoc. En vez de incluirlo en el `docker compose
+up` de todos los días, levantalo solo cuando lo vayas a usar. El comando de
+"uso normal" de acá abajo es el mismo que vas a correr en el Paso 8 para
+levantar todo:
+
+```bash
+# Uso normal (sin Jupyter) — parado dentro de ~/rover_mars:
+docker compose up --build -d $(docker compose config --services | grep -v '^jupyter$')
+
+# Cuando quieras usar notebooks:
+docker compose up -d jupyter
+# y cuando termines:
+docker compose stop jupyter
+```
+
+### 7.3 — Acotar la memoria de Kafka
+
+La imagen de Kafka por defecto puede reservar más heap del necesario para
+este volumen de datos simulados. Esto es opcional pero recomendado en 8 GB —
+podés agregarlo editando `docker-compose.yml` en el servicio `kafka`:
+
+```yaml
+  kafka:
+    # ... lo que ya tiene ...
+    environment:
+      # ... las variables que ya tiene ...
+      KAFKA_HEAP_OPTS: "-Xmx512M -Xms512M"
+```
+
+No hace falta tocar nada más — si en el Paso 8 ves que todo arranca bien sin
+este cambio, podés dejarlo para más adelante.
 
 ---
 
@@ -347,7 +359,7 @@ docker stats --no-stream        # cuánta memoria usa cada contenedor ahora mism
 dmesg | grep -i "killed process"  # confirma si el kernel mató algo por falta de memoria
 ```
 
-Si confirmás un OOM kill: aplicá el ajuste de Kafka del Paso 6.3 si todavía
+Si confirmás un OOM kill: aplicá el ajuste de Kafka del Paso 7.3 si todavía
 no lo hiciste, asegurate de no tener Jupyter corriendo en simultáneo, y como
 último recurso considerá no correr `kafka_ui` permanentemente (es solo una
 herramienta de inspección, no lo necesita ningún pipeline) — se levanta
