@@ -313,7 +313,9 @@ services:
       S3_BUCKET_PDS4: "${S3_BUCKET_PDS4:-mastcamz-pds4}"
       NASA_API_KEY: "${NASA_API_KEY:-DEMO_KEY}"
       SIMULATION_SOL_START: "${SIMULATION_SOL_START:-1}"
-      SIMULATION_INTERVAL_SEC: "${SIMULATION_INTERVAL_SEC:-30}"
+      # Default seguro 900s, no 30s — ver .env.example y docs/DESPLIEGUE_MINIPC.md
+      # (incidente real: 30s llenó 76GB de disco en ~37h sin supervisión).
+      SIMULATION_INTERVAL_SEC: "${SIMULATION_INTERVAL_SEC:-900}"
       JEZERO_LAT: "${JEZERO_LAT:-18.4447}"
       JEZERO_LON: "${JEZERO_LON:-77.4508}"
     depends_on:

@@ -403,6 +403,46 @@ no lo hiciste, asegurate de no tener Jupyter corriendo en simultáneo, y como
 herramienta de inspección, no lo necesita ningún pipeline) — se levanta
 igual que Jupyter, solo cuando lo vayas a usar.
 
+## Si se llena el disco (incidente real, ya corregido en el repo)
+
+`rover_simulator` corre con `restart: unless-stopped` y, con el
+`SIMULATION_INTERVAL_SEC=30` que traía el proyecto antes, generó **76GB en
+`minio_data` en ~37 horas** sin supervisión — suficiente para llenar un disco
+de 98GB al 100% y tumbar Kafka y el scheduler de Airflow (ambos escriben al
+disco constantemente; con 0 bytes libres, mueren con código de salida
+distinto de 0). El síntoma visible fue un "Internal Server Error" en Airflow,
+que no tenía relación aparente con el disco hasta revisar `docker system df -v`.
+
+**Diagnóstico** (de mayor a menor utilidad, todos de solo lectura):
+
+```bash
+df -h /                  # ¿qué % de uso tiene la partición raíz?
+docker system df -v      # desglose exacto por volumen — buscá el que más pesa
+docker compose ps        # ¿algún servicio en Exited con código != 0?
+```
+
+Si `minio_data` es el volumen grande (lo más probable, dado que es donde
+aterrizan las imágenes Raw/Bronze/Silver/Gold que genera el simulador sin
+parar), la recuperación es: parar lo que escribe/lee de MinIO, borrar el
+volumen, recrearlo vacío, y volver a levantar lo que se haya caído por el
+disco lleno:
+
+```bash
+docker compose stop rover_simulator dsn_receiver minio
+docker volume rm rover_mars_minio_data
+docker compose up -d minio
+docker compose up -d minio_init          # recrea los 9 buckets en el volumen vacío
+docker compose up -d kafka airflow_scheduler rover_simulator dsn_receiver
+docker compose ps
+```
+
+**La causa de fondo ya está corregida en el repo** (`.env.example` y el
+fallback en `docker-compose.yml` pasaron de `SIMULATION_INTERVAL_SEC=30` a
+`900` — ~1.7GB/día en vez de ~2GB/hora, y de paso coincide con el cron de
+`mastcamz_full_pipeline`, `*/15 * * * *`). Si clonaste el repo antes de este
+cambio, actualizá tu `.env` a mano con `SIMULATION_INTERVAL_SEC=900` y
+recreá el servicio: `docker compose up -d rover_simulator`.
+
 ---
 
 ## Próximos pasos (opcionales, no bloquean nada de lo de arriba)
