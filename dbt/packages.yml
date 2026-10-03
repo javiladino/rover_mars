@@ -1,0 +1,7 @@
+# Dependencia faltante detectada en despliegue real (ver docs/DESPLIEGUE_MINIPC.md):
+# dbt/models/marts/_marts__models.yml usa dbt_utils.accepted_range (6 veces, en los
+# tests de fct_meda_sol_summary) pero este archivo nunca existió — dbt build fallaba
+# al parsear el proyecto, en ambos DAGs, por esta dependencia no declarada.
+packages:
+  - package: dbt-labs/dbt_utils
+    version: [">=1.1.0", "<2.0.0"]

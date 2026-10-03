@@ -563,6 +563,9 @@ with DAG(
         task_id="dbt_build",
         bash_command=(
             f"cd {DBT_PROJECT_DIR} && "
+            # dbt deps instala dbt_utils (dbt/packages.yml) — ver mastcamz_pipeline.py
+            # para el contexto completo del bug que esto corrige.
+            f"dbt deps --profiles-dir {DBT_PROFILES_DIR} --project-dir {DBT_PROJECT_DIR} && "
             f"dbt build --select fct_meda_sol_summary "
             f"--profiles-dir {DBT_PROFILES_DIR} --project-dir {DBT_PROJECT_DIR}"
         ),

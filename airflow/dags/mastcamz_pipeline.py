@@ -550,6 +550,10 @@ with DAG(
         task_id="dbt_build",
         bash_command=(
             f"cd {DBT_PROJECT_DIR} && "
+            # dbt deps instala dbt_utils (dbt/packages.yml) — sin esto, dbt build
+            # fallaba al parsear dbt/models/marts/_marts__models.yml (bug real
+            # encontrado en despliegue, ver docs/DESPLIEGUE_MINIPC.md).
+            f"dbt deps --profiles-dir {DBT_PROFILES_DIR} --project-dir {DBT_PROJECT_DIR} && "
             f"dbt build --profiles-dir {DBT_PROFILES_DIR} --project-dir {DBT_PROJECT_DIR}"
         ),
     )

@@ -250,10 +250,17 @@ contenedores (OOM killer). Se hacen ahora porque ya tenés el repo clonado
 
 ### 7.1 — Agregar swap
 
-Ubuntu Server no crea swap por defecto en instalaciones con LVM moderno.
-Un archivo de swap de 4 GB te da margen para picos sin que nada se caiga de
-golpe (más lento que RAM si se usa mucho, pero mucho mejor que un
-contenedor matado abruptamente):
+Primero revisá si ya tenés swap — las versiones recientes del instalador de
+Ubuntu Server (particionado guiado con LVM) crean un `/swapfile`
+automáticamente durante la instalación:
+
+```bash
+free -h
+```
+
+Si la línea `Swap:` ya muestra varios GB disponibles, **no hace falta hacer
+nada más acá** — saltá directo al 7.2. Si en cambio muestra `0B`, creá uno de
+4 GB:
 
 ```bash
 sudo fallocate -l 4G /swapfile
@@ -324,6 +331,37 @@ Si algo queda en `unhealthy` o reiniciando en loop, revisá sus logs:
 ```bash
 docker compose logs -f <nombre_del_servicio>
 ```
+
+### Si ves `pull access denied for minio/mc` (o `minio/minio`)
+
+Esto ya no debería pasarte si cloná el repo después de octubre de 2026 — el
+`docker-compose.yml` fue corregido —, pero si lo ves: **no es un problema de
+tu conexión, tu cuenta de Docker ni un rate-limit**. Se verificó
+directamente contra los registries (Docker Hub, Quay.io, y el binario
+directo en `dl.min.io`) que **MinIO Inc. discontinuó la distribución
+gratuita de `minio/minio` y `minio/mc`**, en cualquier tag, incluidos los que
+ya estaban fijados en este proyecto. `docker login` no lo arregla — el
+acceso está bloqueado para todos, no es un límite de cuenta.
+
+El reemplazo ya aplicado en este repo usa el espejo "legacy" (congelado,
+sin actualizaciones futuras, pero funcional) que mantiene Bitnami:
+`bitnamilegacy/minio` y `bitnamilegacy/minio-client`. Si por algún motivo
+tu copia del repo todavía tiene las imágenes viejas, actualizala con
+`git pull`, o aplicá manualmente estos dos cambios en `docker-compose.yml`:
+
+- Servicio `minio`: `image: bitnamilegacy/minio:latest`, y la ruta de datos
+  cambia de `/data` a `/bitnami/minio/data` (tanto en `command:` como en el
+  volumen montado).
+- Servicio `minio_init`: `image: bitnamilegacy/minio-client:latest`, y las
+  llamadas a `/usr/bin/mc` pasan a ser simplemente `mc` (el binario queda en
+  el `PATH` de esta imagen en otra ubicación).
+
+Bitnami advierte que este repo "legacy" podría eliminarse en el futuro — no
+es una solución definitiva, es la que funciona hoy. Si en algún momento deja
+de estar disponible, el camino de reemplazo sería evaluar un servidor
+S3-compatible distinto (por ejemplo Garage o SeaweedFS) para el rol que hoy
+cumple MinIO en local — AWS S3 real (la opción de nube, Paso "Próximos
+pasos" de esta guía) no se ve afectado por nada de esto.
 
 ---
 
