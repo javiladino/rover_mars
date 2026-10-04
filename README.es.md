@@ -10,9 +10,9 @@
 [![IaC](https://img.shields.io/badge/cloud-Terraform%20%2B%20AWS-informational)](infra/aws/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
-**Simulation of the complete NASA Mars 2020 / Perseverance Mastcam-Z data pipeline**, from image capture on the Martian surface to calibrated science products on Earth — implementado como un proyecto de **Modern Data Stack**: streaming (Kafka), arquitectura Medallion, orquestación (Airflow), transformación declarativa (dbt), calidad de datos, CI/CD e integración con AWS.
+**Simulación completa del pipeline de datos Mastcam-Z de la misión NASA Mars 2020 / Perseverance**, desde la captura de imágenes en la superficie marciana hasta los productos científicos calibrados en la Tierra — implementado como un proyecto de **Modern Data Stack**: streaming (Kafka), arquitectura Medallion, orquestación (Airflow), transformación declarativa (dbt), calidad de datos, CI/CD e integración con AWS.
 
-> This project replicates the exact data flow and methodology used by NASA's Jet Propulsion Laboratory (JPL) and the Multi-mission Image Processing Laboratory (MIPL) to process images from the Mastcam-Z stereo cameras aboard the Perseverance rover at Jezero Crater, Mars.
+> Este proyecto replica exactamente el flujo de datos y la metodología que usan el Jet Propulsion Laboratory (JPL) y el Multi-mission Image Processing Laboratory (MIPL) de la NASA para procesar las imágenes de las cámaras estéreo Mastcam-Z a bordo del rover Perseverance, en el cráter Jezero, Marte.
 
 📄 **Documentación de arquitectura:** [docs/ANALISIS_MODERN_DATA_STACK.md](docs/ANALISIS_MODERN_DATA_STACK.md) (ADRs) · [docs/GUIA_IMPLEMENTACION_MODERN_DATA_STACK.md](docs/GUIA_IMPLEMENTACION_MODERN_DATA_STACK.md) (guía paso a paso, Fases 1-6)
 
