@@ -443,6 +443,132 @@ fallback en `docker-compose.yml` pasaron de `SIMULATION_INTERVAL_SEC=30` a
 cambio, actualizá tu `.env` a mano con `SIMULATION_INTERVAL_SEC=900` y
 recreá el servicio: `docker compose up -d rover_simulator`.
 
+## Si `dbt_build` falla sin mostrar ningún error (exit code 2, log vacío)
+
+Síntoma: la tarea `dbt_build` termina en `up_for_retry` o falla, y el log de
+Airflow para esa tarea no muestra absolutamente nada entre "Output:" y el
+código de salida — ni un mensaje de dbt, ni un traceback. Incluso corriendo
+el comando a mano con `docker compose exec`, `dbt deps` devuelve `EXIT=2`
+sin imprimir una sola línea.
+
+**Causa**: permisos. La carpeta `dbt/` del host (montada en
+`/opt/airflow/dbt`) queda con dueño `1000:1000` (tu usuario de Linux), pero
+el proceso de Airflow dentro del contenedor corre como `uid=50000(airflow)
+gid=0(root)` — no coincide ni con el dueño ni con el grupo de esos archivos,
+así que Airflow accede como "otros", y los permisos por defecto
+(`rwxrwxr-x` / `rw-rw-r--`) no le dan escritura a "otros". `dbt deps`
+necesita crear la carpeta `dbt_packages/` ahí mismo para instalar
+`dbt_utils`, no puede, y falla tan temprano en su arranque que ni llega a
+imprimir su propio error — de ahí el log vacío, que es lo más engañoso de
+este incidente.
+
+**Diagnóstico** (confirma el desajuste de usuario/dueño):
+
+```bash
+docker compose exec airflow_scheduler bash -c "whoami; id; ls -la /opt/airflow/dbt/"
+```
+
+**Fix** (en el host, no dentro del contenedor):
+
+```bash
+chmod -R o+rwX dbt/
+```
+
+Es seguro para un mini PC de un solo usuario — solo agrega escritura para
+"otros" sobre esa carpeta puntual, no toca el resto del repo. Después de
+esto, `dbt deps`/`dbt build` corren normal. Si en el futuro `git pull` trae
+modelos `dbt/` nuevos, puede hacer falta repetir este `chmod` (los archivos
+nuevos no heredan el bit de "otros" automáticamente).
+
+## Si los umbrales `MEDA_*` en `.env` no parecen tener efecto
+
+Las 8 variables de umbral de anomalía MEDA (`MEDA_TEMP_MIN_C`,
+`MEDA_PRESSURE_MAX_HPA`, etc.) estaban documentadas en `.env.example` y las
+lee `airflow/plugins/meda_anomaly_rules.py`, pero nunca estaban mapeadas en
+el bloque `environment:` del servicio de Airflow en `docker-compose.yml` —
+cambiarlas en `.env` no llegaba al contenedor. Ya corregido (ver el bloque
+`environment:` de `x-airflow-common`). Si tu copia es anterior a este fix,
+`git pull` lo trae; después alcanza con `docker compose up -d` (es una
+variable de entorno, no un cambio de código — no hace falta `--build`).
+
+## Si `validate_bronze` (pipeline MEDA) falla con log vacío
+
+Mismo síntoma que el caso anterior — log de la tarea completamente vacío
+entre "Pre task execution logs" y "Post task execution logs", sin ningún
+traceback visible.
+
+**Causa**: `airflow/dags/meda_pipeline.py` hacía
+`from simulator.ccsds_encoder import crc16_ccitt` para validar el checksum
+de cada paquete MEDA. El problema: `simulator/` **nunca se copia ni se
+monta dentro de los contenedores de Airflow** (solo existe para el servicio
+`rover_simulator` y para Jupyter) — esa importación fallaba con
+`ModuleNotFoundError` en el primer paquete que procesaba la tarea, y esa
+excepción puntual no quedaba capturada en el log.
+
+**Fix** (ya aplicado en el repo): la función `crc16_ccitt` es pura y sin
+dependencias, así que se movió a `common/rovermars_common/ccsds.py` — el
+módulo compartido al que tanto `simulator/` como `airflow/` ya tienen
+acceso por `PYTHONPATH`, en vez de hacer que un servicio dependa del código
+fuente de otro. `simulator/ccsds_encoder.py` ahora reexporta desde ahí en
+vez de definirla dos veces.
+
+**Importante — `common/` no es un volumen, se copia al construir la
+imagen**: a diferencia de `dbt/`, `airflow/dags` y `airflow/plugins` (que
+sí son volúmenes montados en vivo), cualquier cambio en `common/` requiere
+`docker compose build` para que los contenedores lo vean — un simple
+`docker compose up -d` no alcanza, porque la imagen ya construida no sabe
+que el archivo fuente cambió:
+
+```bash
+docker compose build
+docker compose up -d
+```
+
+## Si armaste paneles en Grafana a mano y después desaparecieron
+
+Síntoma real que pasó en este proyecto: el dashboard de Grafana quedó con el
+título pero sin paneles ni queries SQL, de un día para el otro.
+
+**Causa**: `docker-compose.yml` monta
+`./config/grafana/provisioning:/etc/grafana/provisioning`, pero esa carpeta
+nunca existió en el repo (ni versionada en git). Cualquier panel armado desde
+la UI de Grafana se guarda únicamente en el volumen `grafana_data` (la base
+SQLite interna de Grafana) — no en ningún archivo del repo. Si ese volumen se
+pierde (recrear el stack, `docker compose down -v`, migrar de máquina), los
+paneles se van con él y no hay forma de recuperarlos salvo rehacerlos de
+memoria.
+
+**Fix**: el dashboard de MEDA/Mastcam-Z ahora está versionado como código en
+`config/grafana/provisioning/`:
+
+- `datasources/datasource.yml` — provisiona el datasource Postgres
+  automáticamente (usa las variables `POSTGRES_USER`/`POSTGRES_PASSWORD`/
+  `POSTGRES_DB` que ya pasa `docker-compose.yml` al contenedor de Grafana).
+- `dashboards/dashboards.yml` — le dice a Grafana que cargue dashboards desde
+  esa misma carpeta.
+- `dashboards/rover_telemetry.json` — los 4 paneles (temperatura/presión,
+  cobertura de imágenes, viento, anomalías) con sus queries SQL reales contra
+  `science.meda_silver_readings` y `science.sol_filter_coverage`.
+
+Para que el mini PC recoja esto:
+
+```bash
+git pull
+docker compose up -d grafana
+```
+
+No hace falta `--build` (son archivos montados por volumen, no copiados a la
+imagen). Si ya habías creado a mano un datasource Postgres en la UI, vas a
+terminar con dos — borrá el manual desde Grafana → Connections → Data
+sources, y dejá el que dice "Postgres - rover_mars" (el provisionado).
+
+**Para que esto no se repita**: cualquier cambio a los paneles debería
+hacerse editando `rover_telemetry.json` (y subiendo el `version` del
+dashboard, o simplemente confiando en `updateIntervalSeconds: 30` del
+provider para que se re-sincronice) en vez de solo tocar la UI. Los cambios
+hechos solo en la UI (`allowUiUpdates: true`) se conservan, pero vuelven a
+depender del volumen `grafana_data` hasta que los bajes al JSON.
+
 ---
 
 ## Próximos pasos (opcionales, no bloquean nada de lo de arriba)

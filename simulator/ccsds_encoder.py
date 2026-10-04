@@ -38,6 +38,12 @@ import random
 import struct
 from dataclasses import dataclass
 
+# crc16_ccitt vive en common/ (compartida con airflow/dags/meda_pipeline.py vía
+# PYTHONPATH) para no duplicar la implementación — ver common/rovermars_common/ccsds.py.
+from rovermars_common.ccsds import (
+    crc16_ccitt,  # noqa: F401 (re-exportada para quien ya la importaba desde acá)
+)
+
 # Max bytes in CCSDS packet data field (16-bit length field minus secondary header)
 CCSDS_MAX_PAYLOAD_BYTES = 65528
 CCSDS_PRIMARY_HEADER_LEN = 6
@@ -48,20 +54,6 @@ SEQ_STANDALONE   = 0b11
 SEQ_FIRST        = 0b01
 SEQ_CONTINUATION = 0b00
 SEQ_LAST         = 0b10
-
-
-def crc16_ccitt(data: bytes) -> int:
-    """CRC-16/CCITT-FALSE used in CCSDS checksums."""
-    crc = 0xFFFF
-    for byte in data:
-        crc ^= byte << 8
-        for _ in range(8):
-            if crc & 0x8000:
-                crc = (crc << 1) ^ 0x1021
-            else:
-                crc <<= 1
-        crc &= 0xFFFF
-    return crc
 
 
 @dataclass

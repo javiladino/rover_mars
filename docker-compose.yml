@@ -48,6 +48,19 @@ x-airflow-common: &airflow-common
     MEDA_S3_BUCKET_RAW: "${MEDA_S3_BUCKET_RAW:-meda-raw}"
     MEDA_S3_BUCKET_SILVER: "${MEDA_S3_BUCKET_SILVER:-meda-silver}"
     MEDA_S3_BUCKET_GOLD: "${MEDA_S3_BUCKET_GOLD:-meda-gold}"
+    # BUG corregido (ver docs/DESPLIEGUE_MINIPC.md): estas 8 variables ya
+    # existían documentadas en .env.example y las lee
+    # airflow/plugins/meda_anomaly_rules.py, pero nunca estaban mapeadas acá
+    # — cambiarlas en .env no tenía ningún efecto real sobre el contenedor.
+    MEDA_TEMP_MIN_C: "${MEDA_TEMP_MIN_C:--120.0}"
+    MEDA_TEMP_MAX_C: "${MEDA_TEMP_MAX_C:-40.0}"
+    MEDA_PRESSURE_MIN_HPA: "${MEDA_PRESSURE_MIN_HPA:-0.0}"
+    MEDA_PRESSURE_MAX_HPA: "${MEDA_PRESSURE_MAX_HPA:-120.0}"
+    MEDA_DUST_STORM_WIND_THRESHOLD: "${MEDA_DUST_STORM_WIND_THRESHOLD:-20.0}"
+    MEDA_UV_MIN_W_M2: "${MEDA_UV_MIN_W_M2:-0.0}"
+    MEDA_UV_MAX_W_M2: "${MEDA_UV_MAX_W_M2:-10.0}"
+    MEDA_HUM_MIN_PCT: "${MEDA_HUM_MIN_PCT:-0.0}"
+    MEDA_HUM_MAX_PCT: "${MEDA_HUM_MAX_PCT:-100.0}"
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/plugins:/opt/airflow/plugins
@@ -270,6 +283,12 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_INSTALL_PLUGINS: grafana-worldmap-panel,grafana-piechart-panel
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/provisioning/dashboards/rover_telemetry.json
+      # Usadas por config/grafana/provisioning/datasources/datasource.yml
+      # (expansión $VAR dentro de archivos de provisioning de Grafana) para
+      # no hardcodear credenciales de Postgres en un archivo versionado.
+      POSTGRES_USER: "${POSTGRES_USER:-rover}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB:-rover_mars}"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./config/grafana/provisioning:/etc/grafana/provisioning

@@ -1,0 +1,155 @@
+{
+  "id": null,
+  "uid": "rover-mars-meda",
+  "title": "Rover Mars — MEDA & Mastcam-Z",
+  "description": "Telemetria ambiental (MEDA) y cobertura de imagenes (Mastcam-Z). Versionado en config/grafana/provisioning/dashboards/rover_telemetry.json — editar este archivo, no solo la UI.",
+  "tags": ["rover-mars", "meda", "mastcamz"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Temperatura y presión — MEDA",
+      "description": "science.meda_silver_readings · temperature_ats_c / pressure_hpa · eje derecho para presión porque sus rangos no son comparables (temp ~-90 a -30°C, presión ~6.5 a 8.5 hPa).",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "rover_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "spanNulls": true,
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Temp ATS (°C)" },
+            "properties": [
+              { "id": "unit", "value": "celsius" },
+              { "id": "custom.axisPlacement", "value": "left" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Presión (hPa)" },
+            "properties": [
+              { "id": "unit", "value": "pressurehpa" },
+              { "id": "custom.axisPlacement", "value": "right" }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "rover_postgres" },
+          "format": "time_series",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  ingestion_utc AS \"time\",\n  temperature_ats_c AS \"Temp ATS (°C)\",\n  pressure_hpa AS \"Presión (hPa)\"\nFROM science.meda_silver_readings\nWHERE $__timeFilter(ingestion_utc)\nORDER BY ingestion_utc"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Cobertura de imágenes por sol",
+      "description": "science.sol_filter_coverage · resumen fijo por sol, sin filtro de tiempo (no es una serie temporal).",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "rover_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "rover_postgres" },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  sol,\n  n_images,\n  n_left,\n  n_right,\n  n_filters,\n  first_capture,\n  last_capture\nFROM science.sol_filter_coverage\nORDER BY sol"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Viento — MEDA",
+      "description": "science.meda_silver_readings · wind_speed_ms / wind_direction_deg · eje derecho para dirección (0-360°), escala distinta a la velocidad (0-11 m/s).",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "postgres", "uid": "rover_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "spanNulls": true,
+            "axisPlacement": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Viento (m/s)" },
+            "properties": [
+              { "id": "unit", "value": "velocityms" },
+              { "id": "custom.axisPlacement", "value": "left" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Dirección (°)" },
+            "properties": [
+              { "id": "custom.axisPlacement", "value": "right" }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "rover_postgres" },
+          "format": "time_series",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  ingestion_utc AS \"time\",\n  wind_speed_ms AS \"Viento (m/s)\",\n  wind_direction_deg AS \"Dirección (°)\"\nFROM science.meda_silver_readings\nWHERE $__timeFilter(ingestion_utc)\nORDER BY ingestion_utc"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Anomalías detectadas",
+      "description": "science.meda_silver_readings · filas con anomaly_flag = true dentro del rango de tiempo seleccionado.",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "postgres", "uid": "rover_postgres" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "postgres", "uid": "rover_postgres" },
+          "format": "table",
+          "editorMode": "code",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  ingestion_utc AS \"time\",\n  sol,\n  anomaly_reason AS \"Razón\",\n  temperature_ats_c AS \"Temp ATS (°C)\",\n  pressure_hpa AS \"Presión (hPa)\",\n  wind_speed_ms AS \"Viento (m/s)\"\nFROM science.meda_silver_readings\nWHERE $__timeFilter(ingestion_utc)\n  AND anomaly_flag = true\nORDER BY ingestion_utc DESC"
+        }
+      ]
+    }
+  ]
+}

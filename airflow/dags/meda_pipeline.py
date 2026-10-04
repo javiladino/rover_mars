@@ -101,7 +101,11 @@ def _get_pg():
 
 
 def _crc16_ccitt(data: bytes) -> int:
-    from simulator.ccsds_encoder import crc16_ccitt
+    # BUG corregido (ver docs/DESPLIEGUE_MINIPC.md): antes importaba de
+    # `simulator.ccsds_encoder`, pero simulator/ no existe dentro del
+    # contenedor de Airflow — validate_bronze fallaba con ModuleNotFoundError
+    # en el primer paquete, sin dejar traceback visible en el log de la tarea.
+    from rovermars_common.ccsds import crc16_ccitt
     return crc16_ccitt(data)
 
 
