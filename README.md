@@ -78,6 +78,40 @@ flowchart LR
 
 ---
 
+## Results — Live System
+
+El diagrama de arriba es la promesa; esto es la prueba de que el sistema corre de punta a punta, con datos generados por el propio simulador, pasando por Kafka, Airflow, dbt y Postgres hasta llegar a un dashboard real.
+
+<!--
+TODO (Javier): reemplazar los placeholders de abajo por capturas reales.
+1. Abrí el dashboard "Rover Mars — MEDA & Mastcam-Z" en Grafana, sacá una
+   captura de pantalla completa, guardala como docs/images/grafana_dashboard.png
+2. En Airflow, abrí el DAG meda_full_pipeline → vista "Graph", capturá, guardala
+   como docs/images/airflow_dag_graph.png
+3. (Opcional pero recomendado) grabá un GIF de ~60-90s disparando el DAG y
+   viendo el dashboard actualizarse, guardalo como docs/images/demo.gif y
+   agregalo arriba de todo en esta sección.
+-->
+
+### Grafana — Telemetría MEDA y cobertura Mastcam-Z
+
+![Grafana dashboard: temperatura/presión, curva diurna, viento, cobertura de imágenes y anomalías detectadas](docs/images/grafana_dashboard.png)
+
+5 paneles sobre datos reales generados por el pipeline, no datos de ejemplo:
+
+- **Curva diurna de temperatura** (`lmst_h` en X) — reproduce la forma sinusoidal del modelo físico de MEDA (mínimo pre-amanecer, máximo post-mediodía marciano), no una línea de ejemplo.
+- **Temperatura y presión**, **Viento** — series temporales con eje derecho dedicado para la variable de escala distinta, evitando que una aplaste a la otra.
+- **Cobertura de imágenes por sol** — la proporción 5:3 entre cámara izquierda/derecha coincide exactamente con el plan de captura real del simulador (wide RGB estéreo, zoom rojo, NIR, azul atmosférico).
+- **Anomalías detectadas** — filas marcadas automáticamente por las reglas de `meda_anomaly_rules.py` cuando una lectura cruza el umbral configurado, no una tabla curada a mano.
+
+### Airflow — Orquestación del pipeline MEDA
+
+![Airflow: grafo del DAG meda_full_pipeline](docs/images/airflow_dag_graph.png)
+
+El DAG `meda_full_pipeline` implementa Raw → Bronze (validación) → Silver (calibración + detección de anomalías) → Gold (agregados vía dbt), siguiendo el contrato Medallion de la [constitución del proyecto](.specify/memory/constitution.md): cada capa transforma, ninguna se salta.
+
+---
+
 ## Mastcam-Z Camera Specifications
 
 | Parameter | Value |
