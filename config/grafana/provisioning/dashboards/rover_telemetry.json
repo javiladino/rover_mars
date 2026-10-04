@@ -1,155 +1,672 @@
 {
-  "id": null,
-  "uid": "rover-mars-meda",
-  "title": "Rover Mars — MEDA & Mastcam-Z",
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
   "description": "Telemetria ambiental (MEDA) y cobertura de imagenes (Mastcam-Z). Versionado en config/grafana/provisioning/dashboards/rover_telemetry.json — editar este archivo, no solo la UI.",
-  "tags": ["rover-mars", "meda", "mastcamz"],
-  "timezone": "browser",
-  "schemaVersion": 39,
-  "version": 1,
   "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "rover_postgres"
+      },
+      "description": "science.meda_silver_readings · temperature_ats_c vs lmst_h (hora solar local) · solo temperatura tiene una dependencia diseñada de lmst_h (modelo sinusoidal en simulator/meda_simulator.py); presión/viento son ruido gaussiano sin curva real que mostrar acá.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineStyle": {
+              "dash": [
+                0,
+                10
+              ],
+              "fill": "dot"
+            },
+            "pointSize": {
+              "fixed": 5
+            },
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "show": "lines"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "series": [
+          {
+            "x": "lmst_h",
+            "y": "Temp ATS (°C)"
+          }
+        ],
+        "seriesMapping": "manual",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "rover_postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  lmst_h,\n  temperature_ats_c AS \"Temp ATS (°C)\"\nFROM science.meda_silver_readings\nWHERE $__timeFilter(ingestion_utc)\n  AND temperature_ats_c IS NOT NULL\nORDER BY lmst_h\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Curva diurna de temperatura — MEDA (hora solar local)",
+      "type": "xychart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "rover_postgres"
+      },
+      "description": "science.sol_filter_coverage · resumen fijo por sol, sin filtro de tiempo (no es una serie temporal).",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sol"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 50
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "n_images"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 86
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "n_left"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 55
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "n_right"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 72
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "n_filters"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 79
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "rover_postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  sol,\n  n_images,\n  n_left,\n  n_right,\n  n_filters,\n  first_capture,\n  last_capture\nFROM science.sol_filter_coverage\nORDER BY sol",
+          "refId": "A"
+        }
+      ],
+      "title": "Cobertura de imágenes por sol",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "rover_postgres"
+      },
+      "description": "science.meda_silver_readings · temperature_ats_c / pressure_hpa · eje derecho para presión porque sus rangos no son comparables (temp ~-90 a -30°C, presión ~6.5 a 8.5 hPa).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Temp ATS (°C)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Presión (hPa)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "pressurehpa"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "rover_postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  ingestion_utc AS \"time\",\n  temperature_ats_c AS \"Temp ATS (°C)\",\n  pressure_hpa AS \"Presión (hPa)\"\nFROM science.meda_silver_readings\nWHERE $__timeFilter(ingestion_utc)\nORDER BY ingestion_utc",
+          "refId": "A"
+        }
+      ],
+      "title": "Temperatura y presión — MEDA",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "rover_postgres"
+      },
+      "description": "science.meda_silver_readings · filas con anomaly_flag = true dentro del rango de tiempo seleccionado.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sol"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 54
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Razón"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 99
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Temp ATS (°C)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 118
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Presión (hPa)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 112
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 154
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "rover_postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  ingestion_utc AS \"time\",\n  sol,\n  anomaly_reason AS \"Razón\",\n  temperature_ats_c AS \"Temp ATS (°C)\",\n  pressure_hpa AS \"Presión (hPa)\",\n  wind_speed_ms AS \"Viento (m/s)\"\nFROM science.meda_silver_readings\nWHERE $__timeFilter(ingestion_utc)\n  AND anomaly_flag = true\nORDER BY ingestion_utc DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Anomalías detectadas",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "rover_postgres"
+      },
+      "description": "science.meda_silver_readings · wind_speed_ms / wind_direction_deg · eje derecho para dirección (0-360°), escala distinta a la velocidad (0-11 m/s).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": true,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Viento (m/s)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "velocityms"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Dirección (°)"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "rover_postgres"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  ingestion_utc AS \"time\",\n  wind_speed_ms AS \"Viento (m/s)\",\n  wind_direction_deg AS \"Dirección (°)\"\nFROM science.meda_silver_readings\nWHERE $__timeFilter(ingestion_utc)\nORDER BY ingestion_utc",
+          "refId": "A"
+        }
+      ],
+      "title": "Viento — MEDA",
+      "type": "timeseries"
+    }
+  ],
   "refresh": "",
+  "schemaVersion": 39,
+  "tags": [
+    "rover-mars",
+    "meda",
+    "mastcamz"
+  ],
+  "templating": {
+    "list": []
+  },
   "time": {
     "from": "now-24h",
     "to": "now"
   },
-  "panels": [
-    {
-      "id": 1,
-      "title": "Temperatura y presión — MEDA",
-      "description": "science.meda_silver_readings · temperature_ats_c / pressure_hpa · eje derecho para presión porque sus rangos no son comparables (temp ~-90 a -30°C, presión ~6.5 a 8.5 hPa).",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-      "datasource": { "type": "postgres", "uid": "rover_postgres" },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 10,
-            "spanNulls": true,
-            "axisPlacement": "auto"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "Temp ATS (°C)" },
-            "properties": [
-              { "id": "unit", "value": "celsius" },
-              { "id": "custom.axisPlacement", "value": "left" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Presión (hPa)" },
-            "properties": [
-              { "id": "unit", "value": "pressurehpa" },
-              { "id": "custom.axisPlacement", "value": "right" }
-            ]
-          }
-        ]
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "postgres", "uid": "rover_postgres" },
-          "format": "time_series",
-          "editorMode": "code",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  ingestion_utc AS \"time\",\n  temperature_ats_c AS \"Temp ATS (°C)\",\n  pressure_hpa AS \"Presión (hPa)\"\nFROM science.meda_silver_readings\nWHERE $__timeFilter(ingestion_utc)\nORDER BY ingestion_utc"
-        }
-      ]
-    },
-    {
-      "id": 2,
-      "title": "Cobertura de imágenes por sol",
-      "description": "science.sol_filter_coverage · resumen fijo por sol, sin filtro de tiempo (no es una serie temporal).",
-      "type": "table",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-      "datasource": { "type": "postgres", "uid": "rover_postgres" },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "align": "auto" }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "postgres", "uid": "rover_postgres" },
-          "format": "table",
-          "editorMode": "code",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  sol,\n  n_images,\n  n_left,\n  n_right,\n  n_filters,\n  first_capture,\n  last_capture\nFROM science.sol_filter_coverage\nORDER BY sol"
-        }
-      ]
-    },
-    {
-      "id": 3,
-      "title": "Viento — MEDA",
-      "description": "science.meda_silver_readings · wind_speed_ms / wind_direction_deg · eje derecho para dirección (0-360°), escala distinta a la velocidad (0-11 m/s).",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-      "datasource": { "type": "postgres", "uid": "rover_postgres" },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 1,
-            "fillOpacity": 10,
-            "spanNulls": true,
-            "axisPlacement": "auto"
-          }
-        },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "Viento (m/s)" },
-            "properties": [
-              { "id": "unit", "value": "velocityms" },
-              { "id": "custom.axisPlacement", "value": "left" }
-            ]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Dirección (°)" },
-            "properties": [
-              { "id": "custom.axisPlacement", "value": "right" }
-            ]
-          }
-        ]
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "postgres", "uid": "rover_postgres" },
-          "format": "time_series",
-          "editorMode": "code",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  ingestion_utc AS \"time\",\n  wind_speed_ms AS \"Viento (m/s)\",\n  wind_direction_deg AS \"Dirección (°)\"\nFROM science.meda_silver_readings\nWHERE $__timeFilter(ingestion_utc)\nORDER BY ingestion_utc"
-        }
-      ]
-    },
-    {
-      "id": 4,
-      "title": "Anomalías detectadas",
-      "description": "science.meda_silver_readings · filas con anomaly_flag = true dentro del rango de tiempo seleccionado.",
-      "type": "table",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-      "datasource": { "type": "postgres", "uid": "rover_postgres" },
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "align": "auto" }
-        },
-        "overrides": []
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": { "type": "postgres", "uid": "rover_postgres" },
-          "format": "table",
-          "editorMode": "code",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  ingestion_utc AS \"time\",\n  sol,\n  anomaly_reason AS \"Razón\",\n  temperature_ats_c AS \"Temp ATS (°C)\",\n  pressure_hpa AS \"Presión (hPa)\",\n  wind_speed_ms AS \"Viento (m/s)\"\nFROM science.meda_silver_readings\nWHERE $__timeFilter(ingestion_utc)\n  AND anomaly_flag = true\nORDER BY ingestion_utc DESC"
-        }
-      ]
-    }
-  ]
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Rover Mars — MEDA & Mastcam-Z",
+  "uid": "rover-mars-meda",
+  "version": 2,
+  "weekStart": ""
 }
