@@ -82,16 +82,6 @@ flowchart LR
 
 El diagrama de arriba es la promesa; esto es la prueba de que el sistema corre de punta a punta, con datos generados por el propio simulador, pasando por Kafka, Airflow, dbt y Postgres hasta llegar a un dashboard real.
 
-<!--
-TODO (Javier): reemplazar los placeholders de abajo por capturas reales.
-1. Abrí el dashboard "Rover Mars — MEDA & Mastcam-Z" en Grafana, sacá una
-   captura de pantalla completa, guardala como docs/images/grafana_dashboard.png
-2. En Airflow, abrí el DAG meda_full_pipeline → vista "Graph", capturá, guardala
-   como docs/images/airflow_dag_graph.png
-3. (Opcional pero recomendado) grabá un GIF de ~60-90s disparando el DAG y
-   viendo el dashboard actualizarse, guardalo como docs/images/demo.gif y
-   agregalo arriba de todo en esta sección.
--->
 
 ### Grafana — Telemetría MEDA y cobertura Mastcam-Z
 
@@ -481,6 +471,21 @@ simulación de un problema real de ingeniería de datos, con el mismo estándar
 (pruebas automáticas, control de costos en la nube, documentación de
 decisiones) que usaría un equipo profesional. Una explicación de 2 minutos,
 sin jerga técnica, está en la [sección 10 de la guía de implementación](docs/GUIA_IMPLEMENTACION_MODERN_DATA_STACK.md#10-explicación-para-perfiles-no-técnicos-cierre-de-la-guía).
+
+**¿Qué hace el sistema, en 6 pasos?**
+
+```mermaid
+flowchart LR
+    A["🤖 Rover en Marte<br/>Saca fotos y mide<br/>clima (temp., viento,<br/>presión)"]
+    B["📡 Cruza el espacio<br/>La señal viaja<br/>3 a 22 minutos<br/>hasta la Tierra"]
+    C["📥 Llega y se ordena<br/>Cada dato se pone<br/>en una fila de espera<br/>para procesarse"]
+    D["🧹 Se limpia y se valida<br/>Se descarta lo dañado,<br/>se corrigen las medidas<br/>con datos de calibración"]
+    E["🚨 Revisa si algo anda mal<br/>Detecta automáticamente<br/>lecturas fuera de lo normal,<br/>sin revisión manual"]
+    F["📊 Tablero listo<br/>Gráficos y alertas<br/>para tomar decisiones"]
+    A --> B --> C --> D --> E --> F
+```
+
+*(El diagrama técnico completo, con los nombres reales de cada pieza del stack, está en la [sección Architecture Overview](#architecture-overview).)*
 
 ---
 
