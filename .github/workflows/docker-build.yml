@@ -17,6 +17,10 @@ jobs:
       - name: Build ${{ matrix.service }} image
         uses: docker/build-push-action@v6
         with:
-          context: ./${{ matrix.service }}
+          # Contexto = raíz del repo (igual que docker-compose.yml) porque
+          # cada Dockerfile copia el módulo compartido common/ — ver
+          # docs/DESPLIEGUE_MINIPC.md, "common/ no es un volumen".
+          context: .
+          file: ${{ matrix.service }}/Dockerfile
           push: false
           tags: rover-mars-${{ matrix.service }}:ci
