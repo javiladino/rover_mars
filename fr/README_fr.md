@@ -15,7 +15,7 @@ Ce projet simule le flux complet de données réalisé par un rover sur Mars, te
 | --- | --- |
 | Simulation de capteurs | Python, Pandas, OpenCV |
 | Transmission de données | Kafka (optionnel), Python avec délais et erreurs | 
-| Traitement ETL | Apache Airflow, PySpark | 
+| Traitement ETL | Apache Airflow, dbt, pandas | 
 | Stockage | MinIO / S3, PostgreSQL + PostGIS, Parquet | 
 | ML (optionnel) |Scikit-learn, TensorFlow, autoencodeurs | 
 | Visualisation | React, Tailwind, Plotly, CesiumJS, Recharts | 

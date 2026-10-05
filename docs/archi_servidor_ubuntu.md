@@ -44,7 +44,7 @@ graph TD
 
         %% Stack Datos
         subgraph Data_Eng [Data Engineering Zone]
-            Jupyter[JupyterHub<br/>Python & Spark]:::data
+            Jupyter[JupyterHub<br/>Python & pandas]:::data
             Airflow[Apache Airflow<br/>ETL Orchestration]:::data
             MinIO[MinIO<br/>S3 Object Storage]:::data
             Postgres[PostgreSQL<br/>Database]:::data
