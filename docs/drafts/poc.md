@@ -1,3 +1,5 @@
+> **Documento histórico.** Borrador inicial de planificación; el stack real está en el README.
+
 # rover_mars
 
 ## 🚀 Visión general del proyecto

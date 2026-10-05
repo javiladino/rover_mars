@@ -1,0 +1,459 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Rover Mars — Flux de Données</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+    /* ── Design tokens ── palette: cyberpunk HUD, mission-control dark (single world, no light variant) */
+    :root {
+        --bg-dark: #050505;
+        --bg-panel: #0e0e16;
+        --neon-cyan: #00f3ff;
+        --neon-pink: #ff0099;
+        --neon-green: #39ff14;
+        --neon-yellow: #f3ff00;
+        --mars: #ff6b6b;
+        --space: #a29bfe;
+        --text-main: #e0e0e0;
+        --text-dim: #777;
+        --line-color: #333;
+        color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        background-color: var(--bg-dark);
+        font-family: 'Rajdhani', sans-serif;
+        color: var(--text-main);
+        margin: 0;
+        padding: 40px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-height: 100%;
+        background-image:
+            radial-gradient(circle at 10% 20%, rgba(0, 243, 255, 0.06) 0%, transparent 20%),
+            radial-gradient(circle at 90% 80%, rgba(255, 0, 153, 0.06) 0%, transparent 20%);
+    }
+
+    .header { position: relative; width: 100%; max-width: 1400px; text-align: center; }
+
+    h1 {
+        font-family: 'Share Tech Mono', monospace;
+        color: var(--neon-cyan);
+        text-transform: uppercase;
+        letter-spacing: 4px;
+        margin: 0 0 10px;
+        text-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+        font-size: clamp(1.3rem, 4vw, 2rem);
+    }
+
+    .subtitle {
+        color: var(--neon-pink);
+        font-size: 1.1rem;
+        margin-bottom: 20px;
+        font-family: 'Share Tech Mono', monospace;
+    }
+
+    .latency-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--neon-pink);
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.8rem;
+        letter-spacing: 1px;
+        border: 1px solid var(--neon-pink);
+        border-radius: 3px;
+        padding: 4px 10px;
+        margin-bottom: 24px;
+    }
+    .latency-indicator svg { width: 14px; height: 14px; }
+
+    /* ── Pipeline toggle ── */
+    .pipeline-toggle {
+        display: inline-flex;
+        gap: 2px;
+        margin-bottom: 20px;
+        border: 1px solid var(--line-color);
+        border-radius: 3px;
+        padding: 3px;
+        background: var(--bg-panel);
+    }
+    .toggle-btn {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.8rem;
+        letter-spacing: 2px;
+        background: transparent;
+        color: var(--text-dim);
+        border: none;
+        border-radius: 2px;
+        padding: 7px 16px;
+        cursor: pointer;
+        transition: all 0.25s ease;
+    }
+    .toggle-btn:hover { color: var(--text-main); }
+    .toggle-btn.active {
+        background: rgba(0, 243, 255, 0.1);
+        color: var(--neon-cyan);
+        box-shadow: inset 0 0 0 1px var(--neon-cyan), 0 0 10px rgba(0, 243, 255, 0.3);
+    }
+    .toggle-btn:focus-visible { outline: 2px solid var(--neon-cyan); outline-offset: 2px; }
+
+    /* ── Governance ticker ── */
+    .gov-ticker {
+        width: 100%;
+        max-width: 1400px;
+        overflow: hidden;
+        border-top: 1px solid var(--line-color);
+        border-bottom: 1px solid var(--line-color);
+        margin-bottom: 30px;
+        padding: 9px 0;
+    }
+    .gov-ticker-track {
+        display: flex;
+        width: max-content;
+        animation: ticker-scroll 38s linear infinite;
+    }
+    .gov-ticker-track span {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 0.7rem;
+        letter-spacing: 2px;
+        color: var(--neon-yellow);
+        white-space: nowrap;
+        padding-right: 48px;
+    }
+    @keyframes ticker-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+    /* ── MAP CONTAINER ── */
+    .map-container {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 20px;
+        width: 100%;
+        max-width: 1400px;
+        position: relative;
+    }
+
+    .connections {
+        position: absolute;
+        top: 50px;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    .connection-line {
+        stroke: var(--line-color);
+        stroke-width: 2;
+        fill: none;
+        stroke-dasharray: 10;
+        animation: flow 30s linear infinite;
+    }
+
+    .connection-active {
+        stroke: var(--neon-cyan);
+        stroke-width: 2;
+        stroke-dasharray: 5 5;
+        animation: flow-fast 2s linear infinite;
+        opacity: 0.6;
+    }
+
+    @keyframes flow { to { stroke-dashoffset: -1000; } }
+    @keyframes flow-fast { to { stroke-dashoffset: -50; } }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+
+    /* ── NODES (CARDS) ── */
+    .node {
+        background: var(--bg-panel);
+        border: 1px solid #333;
+        border-radius: 4px;
+        padding: 20px;
+        position: relative;
+        z-index: 1;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        min-height: 300px;
+    }
+
+    .node:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0, 243, 255, 0.15);
+        border-color: var(--neon-cyan);
+    }
+
+    .node-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #333;
+    }
+
+    .node:hover .node-header { border-bottom-color: var(--neon-cyan); }
+
+    .icon-box {
+        width: 38px;
+        height: 38px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.05);
+    }
+    .icon-box svg { width: 20px; height: 20px; }
+
+    .mars-color { color: var(--mars); border: 1px solid var(--mars); box-shadow: 0 0 5px var(--mars); }
+    .space-color { color: var(--space); border: 1px solid var(--space); box-shadow: 0 0 5px var(--space); }
+    .earth-color { color: var(--neon-cyan); border: 1px solid var(--neon-cyan); box-shadow: 0 0 5px var(--neon-cyan); }
+    .process-color { color: var(--neon-pink); border: 1px solid var(--neon-pink); box-shadow: 0 0 5px var(--neon-pink); }
+    .viz-color { color: var(--neon-green); border: 1px solid var(--neon-green); box-shadow: 0 0 5px var(--neon-green); }
+
+    .node-title { font-weight: 700; text-transform: uppercase; font-size: 1.05rem; color: white; }
+
+    .data-list { font-family: 'Share Tech Mono', monospace; font-size: 0.82rem; color: var(--text-main); margin: 0; padding: 0; list-style: none; }
+    .data-list li { margin-bottom: 8px; display: flex; justify-content: space-between; gap: 8px; }
+    .data-tag { flex: none; font-size: 0.68rem; padding: 2px 6px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; white-space: nowrap; }
+
+    .tech-stack { margin-top: auto; font-size: 0.78rem; color: var(--text-dim); border-top: 1px dashed #333; padding-top: 10px; }
+    .tech-stack span { color: var(--neon-yellow); }
+
+    .status-row { margin-top: 10px; display: flex; align-items: center; gap: 6px; font-size: 0.68rem; color: var(--neon-green); letter-spacing: 1px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--neon-green); box-shadow: 0 0 6px var(--neon-green); animation: pulse-dot 1.8s ease-in-out infinite; }
+
+    .zone-labels {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        width: 100%;
+        max-width: 1400px;
+        margin-bottom: 20px;
+        text-align: center;
+        font-family: 'Share Tech Mono', monospace;
+        color: #555;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 2px;
+    }
+
+    .node:hover .node-title {
+        animation: glitch 0.3s cubic-bezier(.25, .46, .45, .94) both infinite;
+        color: var(--neon-cyan);
+    }
+
+    @keyframes glitch {
+        0% { transform: translate(0) }
+        20% { transform: translate(-2px, 2px) }
+        40% { transform: translate(-2px, -2px) }
+        60% { transform: translate(2px, 2px) }
+        80% { transform: translate(2px, -2px) }
+        100% { transform: translate(0) }
+    }
+
+    .footer-note { margin-top: 50px; color: #555; font-family: 'Share Tech Mono', monospace; font-size: 0.78rem; text-align: center; }
+    .footer-note a { color: var(--neon-cyan); }
+
+    @media (prefers-reduced-motion: reduce) {
+        .gov-ticker-track, .connection-line, .connection-active, .status-dot, .node:hover .node-title { animation: none !important; }
+    }
+
+    @media (max-width: 980px) {
+        .map-container, .zone-labels { grid-template-columns: repeat(3, 1fr); }
+        .connections { display: none; }
+    }
+    @media (max-width: 600px) {
+        body { padding: 28px 16px; }
+        .map-container, .zone-labels { grid-template-columns: 1fr; }
+        .zone-labels > div { display: none; }
+    }
+</style>
+
+<div class="header">
+    <h1>Cartographie du Flux de Données</h1>
+    <div class="subtitle">ROVER MARS // PIPELINE RÉEL — SIMULATION DE BOUT EN BOUT</div>
+    <div class="latency-indicator">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>
+        LATENCE SIMULÉE : 3–22 MIN
+    </div>
+    <div class="pipeline-toggle" role="group" aria-label="Choix du pipeline affiché">
+        <button type="button" class="toggle-btn active" data-pipeline="mcz">MASTCAM-Z</button>
+        <button type="button" class="toggle-btn" data-pipeline="meda">MEDA</button>
+    </div>
+</div>
+
+<div class="gov-ticker" aria-hidden="true">
+    <div class="gov-ticker-track">
+        <span>GOUVERNANCE : SPEC-DRIVEN DEVELOPMENT · CONSTITUTION V1.0 · 8 PRINCIPES NON NÉGOCIABLES · FIDÉLITÉ DU DOMAINE · CONTRAT MEDALLION · IDEMPOTENCE &amp; DÉTERMINISME · VÉRIFICATION RÉELLE (PYTEST + RUFF) · ZÉRO SECRET EN DUR · COÛT AWS MAÎTRISÉ · ADR PAR DÉCISION · TRANSFORMATION DÉCLARATIVE (DBT)&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        <span>GOUVERNANCE : SPEC-DRIVEN DEVELOPMENT · CONSTITUTION V1.0 · 8 PRINCIPES NON NÉGOCIABLES · FIDÉLITÉ DU DOMAINE · CONTRAT MEDALLION · IDEMPOTENCE &amp; DÉTERMINISME · VÉRIFICATION RÉELLE (PYTEST + RUFF) · ZÉRO SECRET EN DUR · COÛT AWS MAÎTRISÉ · ADR PAR DÉCISION · TRANSFORMATION DÉCLARATIVE (DBT)&nbsp;&nbsp;&nbsp;&nbsp;</span>
+    </div>
+</div>
+
+<div class="zone-labels">
+    <div>Zone 1 : Origine</div>
+    <div>Zone 2 : Encodage</div>
+    <div>Zone 3 : Relais</div>
+    <div>Zone 4 : Réception</div>
+    <div>Zone 5 : Traitement</div>
+    <div>Zone 6 : Visualisation</div>
+</div>
+
+<div class="map-container">
+
+    <svg class="connections">
+        <path d="M 100 100 L 250 100" class="connection-active" />
+        <path d="M 300 100 L 450 100" class="connection-active" />
+        <path d="M 500 100 L 650 100" class="connection-active" />
+        <path d="M 700 100 L 850 100" class="connection-line" />
+        <path d="M 900 100 L 1050 100" class="connection-line" />
+    </svg>
+
+    <!-- 1. CAPTEURS ROVER -->
+    <div class="node" style="border-bottom: 3px solid var(--mars);">
+        <div class="node-header">
+            <div class="icon-box mars-color">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="18" height="7" rx="1.5"/><circle cx="7" cy="19" r="1.8"/><circle cx="17" cy="19" r="1.8"/><path d="M12 10V5"/><circle cx="12" cy="3.5" r="1.4"/></svg>
+            </div>
+            <div class="node-title">Capteurs Rover</div>
+        </div>
+        <ul class="data-list">
+            <li data-mcz><span>IMAGES BRUTES</span><span class="data-tag">CCD 1648×1214</span></li>
+            <li data-mcz><span>FILTRES</span><span class="data-tag">16 (8G+8D)</span></li>
+            <li data-meda hidden><span>TEMPÉRATURE</span><span class="data-tag">ATS</span></li>
+            <li data-meda hidden><span>PRESSION / VENT</span><span class="data-tag">PS / WS</span></li>
+            <li><span>CADENCE</span><span class="data-tag">900 s</span></li>
+        </ul>
+        <div class="tech-stack">
+            Stack: <span>Python 3.11 + NumPy/Pillow</span><br>
+            rover_simulator (continu)
+            <div class="status-row"><span class="status-dot"></span>SYSTÈME ACTIF</div>
+        </div>
+    </div>
+
+    <!-- 2. ENCODAGE CCSDS -->
+    <div class="node" style="border-bottom: 3px solid var(--mars);">
+        <div class="node-header">
+            <div class="icon-box mars-color">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1.5"/><rect x="9.5" y="9.5" width="5" height="5"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+            </div>
+            <div class="node-title">Encodage CCSDS</div>
+        </div>
+        <ul class="data-list">
+            <li><span>PROTOCOLE</span><span class="data-tag">CCSDS 133.0-B-2</span></li>
+            <li data-mcz><span>APID</span><span class="data-tag">0x01A5 / 0x01A6</span></li>
+            <li data-meda hidden><span>APID</span><span class="data-tag">0x0C0–0x0C4</span></li>
+            <li><span>CHECKSUM</span><span class="data-tag">CRC-16/CCITT</span></li>
+        </ul>
+        <div class="tech-stack">
+            Stack: <span>ccsds_encoder.py</span><br>
+            Segmentation + réassemblage
+            <div class="status-row"><span class="status-dot"></span>SYSTÈME ACTIF</div>
+        </div>
+    </div>
+
+    <!-- 3. RELAIS MRO -->
+    <div class="node" style="border-bottom: 3px solid var(--space);">
+        <div class="node-header">
+            <div class="icon-box space-color">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="10" width="5" height="4"/><rect x="17" y="10" width="5" height="4"/><rect x="9.5" y="9" width="5" height="6" rx="1"/><path d="M7 12h2.5M14.5 12H17"/><path d="M12 9V6M10 6h4"/></svg>
+            </div>
+            <div class="node-title">Relais MRO</div>
+        </div>
+        <ul class="data-list">
+            <li><span>LIAISON MONTANTE</span><span class="data-tag">UHF</span></li>
+            <li><span>STOCKAGE &amp; TRANSFERT</span><span class="data-tag">MÉM</span></li>
+            <li><span>LIAISON DESCENDANTE</span><span class="data-tag">X-BAND</span></li>
+        </ul>
+        <div class="tech-stack">
+            Réf: <span>Mars Reconnaissance Orbiter</span><br>
+            Relais simulé
+            <div class="status-row"><span class="status-dot"></span>SYSTÈME ACTIF</div>
+        </div>
+    </div>
+
+    <!-- 4. DSN TERRE -->
+    <div class="node" style="border-bottom: 3px solid var(--neon-cyan);">
+        <div class="node-header">
+            <div class="icon-box earth-color">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a9 9 0 0115-6"/><path d="M19 9l-7 6"/><circle cx="19" cy="9" r="1.4" fill="currentColor" stroke="none"/><path d="M12 15v4M9 21h6"/></svg>
+            </div>
+            <div class="node-title">DSN Terre</div>
+        </div>
+        <ul class="data-list">
+            <li><span>STATIONS</span><span class="data-tag">Goldstone/Madrid/Canberra</span></li>
+            <li><span>DÉLAI SIMULÉ</span><span class="data-tag">3–22 MIN</span></li>
+            <li><span>BRUIT CANAL</span><span class="data-tag">BER X-band + perte 2%</span></li>
+        </ul>
+        <div class="tech-stack">
+            Stack: <span>DSNSimulator (Python)</span><br>
+            BER + perte de paquets
+            <div class="status-row"><span class="status-dot"></span>SYSTÈME ACTIF</div>
+        </div>
+    </div>
+
+    <!-- 5. PIPELINE AIRFLOW + DBT -->
+    <div class="node" style="border-bottom: 3px solid var(--neon-pink);">
+        <div class="node-header">
+            <div class="icon-box process-color">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3.5" width="16" height="5.5" rx="1"/><rect x="4" y="15" width="16" height="5.5" rx="1"/><circle cx="7.5" cy="6.2" r="0.8" fill="currentColor" stroke="none"/><circle cx="7.5" cy="17.7" r="0.8" fill="currentColor" stroke="none"/><path d="M4 11.5h16"/></svg>
+            </div>
+            <div class="node-title">Pipeline Airflow</div>
+        </div>
+        <ul class="data-list">
+            <li><span>ARCHITECTURE</span><span class="data-tag">Raw→Bronze→Silver→Gold</span></li>
+            <li data-mcz><span>DAG</span><span class="data-tag">mastcamz_full_pipeline</span></li>
+            <li data-meda hidden><span>DAG</span><span class="data-tag">meda_full_pipeline (11 tâches)</span></li>
+            <li><span>ANOMALIES</span><span class="data-tag">détection auto</span></li>
+        </ul>
+        <div class="tech-stack">
+            Stack: <span>Airflow 2.9 / dbt-core 1.8</span><br>
+            Kafka → MinIO/S3 → PostGIS
+            <div class="status-row"><span class="status-dot"></span>SYSTÈME ACTIF</div>
+        </div>
+    </div>
+
+    <!-- 6. GRAFANA + JUPYTER -->
+    <div class="node" style="border-bottom: 3px solid var(--neon-green);">
+        <div class="node-header">
+            <div class="icon-box viz-color">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/><path d="M7 9l3 3-3 3M13 14h4"/></svg>
+            </div>
+            <div class="node-title">Ops Mission</div>
+        </div>
+        <ul class="data-list">
+            <li data-mcz><span>PANNEAU</span><span class="data-tag">Couverture images/sol</span></li>
+            <li data-meda hidden><span>PANNEAUX</span><span class="data-tag">Temp/Press/Vent/Anomalies</span></li>
+            <li><span>NOTEBOOKS</span><span class="data-tag">JupyterHub</span></li>
+            <li><span>PROVISIONING</span><span class="data-tag">versionné (IaC)</span></li>
+        </ul>
+        <div class="tech-stack">
+            Stack: <span>Grafana 10 / JupyterHub</span><br>
+            Dashboard en temps réel
+            <div class="status-row"><span class="status-dot"></span>SYSTÈME ACTIF</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="footer-note">
+    // FIN DE LA CARTE DE FLUX // PIPELINE DÉPLOYÉ — DOCKER COMPOSE (LOCAL) + TERRAFORM (AWS, HYBRIDE)
+</div>
+
+<script>
+(function () {
+    var buttons = document.querySelectorAll('.toggle-btn');
+    function setPipeline(p) {
+        document.querySelectorAll('[data-mcz]').forEach(function (el) { el.hidden = p !== 'mcz'; });
+        document.querySelectorAll('[data-meda]').forEach(function (el) { el.hidden = p !== 'meda'; });
+        buttons.forEach(function (b) { b.classList.toggle('active', b.dataset.pipeline === p); });
+    }
+    buttons.forEach(function (b) {
+        b.addEventListener('click', function () { setPipeline(b.dataset.pipeline); });
+    });
+})();
+</script>
+
+</body></html>
