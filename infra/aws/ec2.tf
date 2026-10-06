@@ -18,7 +18,7 @@ resource "aws_security_group" "ec2_app" {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # en Fase 4/5 conviene ponerlo detrás de un reverse proxy con TLS
+    cidr_blocks = [var.ssh_allowed_cidr] # sin exposición pública; en Fase 4/5 conviene un reverse proxy con TLS
   }
 
   ingress {
@@ -26,7 +26,7 @@ resource "aws_security_group" "ec2_app" {
     from_port   = 8085
     to_port     = 8085
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.ssh_allowed_cidr]
   }
 
   egress {

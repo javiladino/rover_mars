@@ -35,7 +35,7 @@ resource "aws_db_instance" "rover_mars" {
   db_subnet_group_name    = aws_db_subnet_group.default.name
   publicly_accessible     = false
   skip_final_snapshot     = true
-  backup_retention_period = 3
+  backup_retention_period = 1 # máximo permitido en cuentas de plan gratuito (FreeTierRestrictionError)
   deletion_protection     = false # portafolio/demo: se prioriza poder destruir con terraform destroy
 
   # Nota: la extensión PostGIS se habilita post-creación con:
