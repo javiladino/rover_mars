@@ -56,3 +56,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Artefactos locales de Terraform
+infra/aws/tfplan
+infra/aws/lambda/*.zip
