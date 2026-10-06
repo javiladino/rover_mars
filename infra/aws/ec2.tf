@@ -14,14 +14,6 @@ resource "aws_security_group" "ec2_app" {
   }
 
   ingress {
-    description = "Airflow webserver"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = [var.ssh_allowed_cidr] # sin exposición pública; en Fase 4/5 conviene un reverse proxy con TLS
-  }
-
-  ingress {
     description = "Kafka UI"
     from_port   = 8085
     to_port     = 8085
