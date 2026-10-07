@@ -134,6 +134,10 @@ alerta y que el dashboard publicado es accesible sin credenciales de escritura.
   se reintenta sin duplicar y sin marcar como fallido lo ya persistido.
 - ¿Qué pasa si un producto real no tiene etiqueta PDS4 legible? Se pone en
   cuarentena con motivo explícito, igual que un checksum inválido.
+- ¿Qué pasa si la etiqueta PDS4 no publica un checksum de contenido? (Es el caso real
+  del bundle usado en esta feature — ver `research.md`.) Se valida en su lugar la
+  integridad de transporte (bytes recibidos vs. `Content-Length`); si no coincide,
+  se pone en cuarentena igual que un checksum inválido.
 - ¿Qué pasa si el costo acumulado se acerca al 80% del tope? Se dispara la alerta
   y la corrida de demostración se detiene antes de crear recursos adicionales.
 - ¿Qué pasa si la destrucción falla a mitad de camino? Se reintenta; el procedimiento
@@ -152,9 +156,14 @@ alerta y que el dashboard publicado es accesible sin credenciales de escritura.
 - **FR-002**: Ningún recurso de pago se aplica sin que el plan de infraestructura haya
   sido revisado previamente.
 - **FR-003**: Los productos reales se conservan en la capa Raw sin modificación, con su
-  identificador PDS4 original y su checksum verificado.
-- **FR-004**: Los productos que no pasan la validación de checksum o de etiqueta DEBEN
-  quedar en cuarentena con motivo explícito y no avanzar a Silver.
+  identificador PDS4 original y su integridad verificada: contra el checksum de
+  contenido de la etiqueta PDS4 cuando el producto lo publica, o — si no lo publica,
+  que es el caso real del bundle `mastcamz_ops_raw` verificado en esta feature (ver
+  `research.md`, Decisión 2) — contra la integridad de transporte (bytes recibidos
+  vs. `Content-Length` anunciado).
+- **FR-004**: Los productos que no pasan la validación de integridad (checksum de
+  contenido o, en su defecto, de transporte) o de etiqueta DEBEN quedar en cuarentena
+  con motivo explícito y no avanzar a Silver.
 - **FR-005**: Cada registro de origen simulado DEBE estar marcado como "simulado" en
   Bronze y en cualquier vista que lo consuma.
 - **FR-006**: Ninguna credencial de AWS o de la fuente de datos aparece en código ni en
@@ -189,7 +198,8 @@ alerta y que el dashboard publicado es accesible sin credenciales de escritura.
 - **SC-001**: Las alertas de presupuesto están activas antes del primer recurso de pago,
   verificable por el orden de creación.
 - **SC-002**: El 100% de los productos reales ingeridos conserva su identificador PDS4
-  original y pasa la verificación de checksum.
+  original y pasa la verificación de integridad aplicable (checksum de contenido si la
+  etiqueta lo publica; integridad de transporte si no — ver FR-003 y `research.md`).
 - **SC-003**: Una segunda ejecución de la ingesta sobre el mismo conjunto produce 0
   registros duplicados.
 - **SC-004**: La tabla de cobertura por sol producida por el job coincide con la vista SQL

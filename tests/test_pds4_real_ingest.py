@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 from pds4_real_ingest import (
     ChecksumMismatchError,
+    TruncatedDownloadError,
     download_and_validate,
     fetch_label_checksum,
     list_sol_products,
@@ -127,7 +128,7 @@ def test_download_and_validate_accepts_matching_checksum():
     session = MagicMock()
     label_response = MagicMock(text=label_xml)
     label_response.raise_for_status = MagicMock()
-    img_response = MagicMock(content=content)
+    img_response = MagicMock(content=content, headers={"Content-Length": str(len(content))})
     img_response.raise_for_status = MagicMock()
     session.get.side_effect = [label_response, img_response]
 
@@ -142,7 +143,7 @@ def test_download_and_validate_raises_on_checksum_mismatch():
     session = MagicMock()
     label_response = MagicMock(text=label_xml)
     label_response.raise_for_status = MagicMock()
-    img_response = MagicMock(content=content)
+    img_response = MagicMock(content=content, headers={"Content-Length": str(len(content))})
     img_response.raise_for_status = MagicMock()
     session.get.side_effect = [label_response, img_response]
 
@@ -151,16 +152,35 @@ def test_download_and_validate_raises_on_checksum_mismatch():
 
 
 def test_download_and_validate_accepts_when_label_has_no_checksum():
+    # Caso real de este bundle (ver research.md Decisión 2 revisada): ninguna
+    # etiqueta trae <md5_checksum> -- se acepta validando solo integridad de
+    # transporte (Content-Length coincide con los bytes recibidos).
     content = b"contenido sin checksum en la etiqueta"
     session = MagicMock()
     label_response = MagicMock(text="<product/>")
     label_response.raise_for_status = MagicMock()
-    img_response = MagicMock(content=content)
+    img_response = MagicMock(content=content, headers={"Content-Length": str(len(content))})
     img_response.raise_for_status = MagicMock()
     session.get.side_effect = [label_response, img_response]
 
     result = download_and_validate(_producto_de_prueba(), session=session)
     assert result == content
+
+
+def test_download_and_validate_raises_on_truncated_download():
+    # El servidor anuncia más bytes de los que realmente llegaron.
+    content = b"contenido incompleto"
+    session = MagicMock()
+    label_response = MagicMock(text="<product/>")
+    label_response.raise_for_status = MagicMock()
+    img_response = MagicMock(
+        content=content, headers={"Content-Length": str(len(content) + 100)}
+    )
+    img_response.raise_for_status = MagicMock()
+    session.get.side_effect = [label_response, img_response]
+
+    with pytest.raises(TruncatedDownloadError):
+        download_and_validate(_producto_de_prueba(), session=session)
 
 
 # ── upsert / cuarentena (Postgres simulado) ─────────────────────────────

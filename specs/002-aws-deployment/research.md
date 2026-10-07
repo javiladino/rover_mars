@@ -89,9 +89,37 @@ por sol pedido, no un recorrido del árbol completo de 658 sols) — el límite
 pasó de "un manifiesto único" a "una carpeta por sol", pero el principio
 (no recorrer todo el archivo) se mantiene.
 
-**Checksum**: al no venir en el manifiesto, se lee de la propia etiqueta
-PDS4 (`.xml`) de cada producto, que trae su `<md5_checksum>` oficial — más
-fiel al dominio real que inventar una columna que no existe.
+**Checksum (corrección 2026-10-07, tras correr la ingesta real contra los
+152 productos del sol 100)**: la suposición original de este documento —
+que la etiqueta PDS4 trae su `<md5_checksum>` oficial — también era
+incorrecta, descubierto de la misma forma que el punto anterior: corriendo
+el script contra la red real, no inspeccionando el archivo antes de
+escribir código. Se verificó con `WebFetch` directo sobre dos etiquetas de
+tipos de producto distintos (`102EDR` y `098ECM`) y sobre el bundle
+completo (raíz y `data/`): **ninguna etiqueta de este bundle trae
+`<md5_checksum>` ni `<file_size>`**, y no existe un manifiesto de
+checksums a nivel de colección ni de bundle. Lo único presente es
+`<msn_surface:telemetry_source_checksum>`, un checksum de telemetría del
+paquete DSN (valores de 4-5 dígitos) — no identifica el contenido del
+archivo final y no es apto para validar integridad de contenido.
+
+**Decisión derivada**: ante la ausencia de un checksum de contenido
+publicado para esta fuente, la verificación de integridad (FR-003/FR-004)
+se redefine como integridad de **transporte**: que la descarga trajo
+exactamente los bytes que el servidor anunció en el header
+`Content-Length` de la respuesta HTTP (`TruncatedDownloadError` si no
+coincide, con el mismo tratamiento de cuarentena que un checksum
+inválido). El código conserva el camino de verificación por
+`<md5_checksum>` por si algún producto futuro sí lo trajera, pero para
+este bundle ese camino nunca se ejecuta — se deja constancia explícita en
+el log por cada producto, no se oculta. Esto no es una simplificación
+nuestra: es una limitación real y verificada de la fuente de datos
+(Principio I — se documenta en vez de inventar un checksum que no existe).
+Alternativas descartadas: generar un hash propio (SHA256 del contenido
+descargado) y presentarlo como "checksum verificado" — se descartó porque
+no sería una verificación contra un valor publicado, sino uno inventado
+por nosotros mismos, lo cual contradice el espíritu de FR-003 más que
+reinterpretarlo honestamente.
 
 **Formato real de producto** (confirmado navegando `ops_raw` directamente,
 no solo `sci_calibrated`):

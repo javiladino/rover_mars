@@ -39,7 +39,7 @@ existen.
 | `sol` | Segundo campo del nombre de archivo | Ya existe en `image_products.sol` |
 | `sclk` | Tercer campo del nombre de archivo | Ya existe en `image_products` |
 | `camera_eye` | `ZL6` → `LEFT`, `ZR2` → `RIGHT` | Mapeo explícito, ya existe la columna |
-| `checksum_fuente` | De la etiqueta PDS4 (`.xml`) del producto, no del manifiesto — ver research.md Decisión 2 (revisada) | Se valida contra el archivo descargado antes de aceptar el producto (FR-003/FR-004) |
+| `checksum_fuente` | De la etiqueta PDS4 (`.xml`) del producto, si la publica — en el bundle `mastcamz_ops_raw` verificado en esta feature, ninguna la publica (ver research.md Decisión 2, corrección 2026-10-07) | Si existe, se valida contra el archivo descargado (FR-003/FR-004); si no existe, se valida en su lugar integridad de transporte (`Content-Length`) |
 | `origen` | Constante `'real'` para estos registros | Columna nueva (ver arriba) |
 | `raw_s3_key` | Ruta del objeto en el bucket `raw` | Ya existe el patrón de key en el código del simulador; se reutiliza |
 

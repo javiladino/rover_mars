@@ -28,8 +28,20 @@ carpeta use 5), SCLK, resto de campos de la misión real. Distinto del
 formato M20_MCZL_... que documenta el simulador, que es una convención
 simplificada, no la real (ver research.md).
 
-El checksum no viene en el manifiesto -- se lee de la etiqueta PDS4 (.xml)
-de cada producto, que trae su propio <md5_checksum> oficial.
+Checksum (revisado 2026-10-07, verificado contra 2 etiquetas reales de
+tipos de producto distintos -- 102EDR y 098ECM -- y contra el bundle
+completo, no solo un producto): ninguna etiqueta PDS4 de este bundle trae
+<md5_checksum> ni <file_size>. Lo único que traen es
+<msn_surface:telemetry_source_checksum>, un checksum de telemetría del
+paquete DSN (no del contenido del archivo final) -- no sirve para validar
+integridad de contenido. Tampoco existe un manifiesto de checksums a nivel
+de colección ni de bundle (se revisaron ambos). Ante la ausencia de un
+checksum de contenido publicado, la verificación real disponible es de
+transporte: que la descarga trajo exactamente los bytes que el servidor
+anunció en el header Content-Length (ver TruncatedDownloadError). Si algún
+producto sí trajera <md5_checksum> (no ocurre en este bundle, pero el
+código no lo descarta para otros), se valida contra ese hash en vez de la
+verificación de transporte.
 """
 
 from __future__ import annotations
@@ -74,6 +86,18 @@ class ProductoPDS4Real:
 
 class ChecksumMismatchError(ValueError):
     """El contenido descargado no coincide con el checksum de la etiqueta PDS4 (FR-004)."""
+
+
+class TruncatedDownloadError(ValueError):
+    """
+    La descarga no trajo todos los bytes que el servidor anunció (FR-004).
+
+    Verificación de integridad de transporte -- se usa cuando la etiqueta
+    PDS4 del producto no trae <md5_checksum> (el caso real de este bundle,
+    ver docstring del módulo y research.md Decisión 2 revisada). No es un
+    hash de contenido verificado contra un valor publicado porque ninguno
+    existe para esta fuente; es la verificación honesta que sí es posible.
+    """
 
 
 def parse_product_filename(filename_without_ext: str) -> dict:
@@ -163,11 +187,15 @@ def fetch_label_checksum(label_url: str, session=None) -> str | None:
 
 def download_and_validate(producto: ProductoPDS4Real, session=None) -> bytes:
     """
-    Descarga el .IMG de un producto y valida su checksum MD5 contra el de su
-    etiqueta PDS4. Lanza ChecksumMismatchError si no coincide -- quien llama
-    decide qué hacer (FR-004: poner en cuarentena, no pasar a Silver). Si la
-    etiqueta no trae checksum reconocible, se acepta el producto igual pero
-    se deja constancia en el log (no se inventa una validación que no existe).
+    Descarga el .IMG de un producto y valida su integridad.
+
+    Si la etiqueta PDS4 trae <md5_checksum>, se valida contra ese hash
+    (ChecksumMismatchError si no coincide). Si no lo trae -- el caso real
+    de este bundle, ver docstring del módulo -- se valida en su lugar que
+    la descarga no vino truncada, comparando los bytes recibidos contra el
+    header Content-Length de la respuesta (TruncatedDownloadError si no
+    coincide). En ambos casos, quien llama decide qué hacer con el error
+    (FR-004: poner en cuarentena, no pasar a Silver).
     """
     if session is None:
         import requests
@@ -180,6 +208,13 @@ def download_and_validate(producto: ProductoPDS4Real, session=None) -> bytes:
     response.raise_for_status()
     content = response.content
 
+    content_length = response.headers.get("Content-Length")
+    if content_length is not None and len(content) != int(content_length):
+        raise TruncatedDownloadError(
+            f"Descarga truncada para {producto.product_id}: "
+            f"Content-Length={content_length} bytes recibidos={len(content)}"
+        )
+
     if checksum_esperado:
         actual = hashlib.md5(content).hexdigest()
         if actual.lower() != checksum_esperado.lower():
@@ -189,7 +224,8 @@ def download_and_validate(producto: ProductoPDS4Real, session=None) -> bytes:
             )
     else:
         logger.warning(
-            "Etiqueta PDS4 de %s sin <md5_checksum> reconocible -- aceptado sin validar",
+            "Etiqueta PDS4 de %s sin <md5_checksum> reconocible -- "
+            "verificada solo integridad de transporte (ver research.md)",
             producto.product_id,
         )
     return content
@@ -266,7 +302,7 @@ def ingest(sols: list[int]) -> None:
             for producto in productos:
                 try:
                     content = download_and_validate(producto)
-                except ChecksumMismatchError as exc:
+                except (ChecksumMismatchError, TruncatedDownloadError) as exc:
                     logger.warning("Cuarentena: %s", exc)
                     quarantine_image_product_real(cursor, producto, str(exc))
                     continue
