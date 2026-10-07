@@ -90,3 +90,34 @@ el `aws_glue_job` y la conexión puede revisarse con el RDS apagado, pero
 4. Capturar evidencia (Escenario 1 de `spec.md`: facturación + corrida
    completa).
 5. Apagar o destruir según corresponda al cierre de la demo.
+
+---
+
+## Anexo — Resultado real de la ventana de validación (T014, 2026-10-07)
+
+**Costo total observado**: `$0.00` reales en AWS Budgets/Cost Explorer al momento
+del `destroy` (ver `evidence/costo_despliegue.md`) — dentro de elegibilidad de plan
+gratuito para EC2 `t3.small`/RDS `db.t3.micro` en esta ventana corta. El único
+costo medido de forma independiente (no reflejado aún en Cost Explorer por su
+demora de reporte) es el job de Glue: **≈$0.025 por corrida** (203 DPU-segundos,
+ver T031).
+
+**Tiempo real**: la infraestructura base (EC2/RDS) se aplicó por primera vez el
+2026-10-06 y se mantuvo **detenida (`stopped`), no terminada**, entre sesiones de
+trabajo para no acumular costo sin uso (práctica deliberada, Principio VI) — el
+tiempo de pared entre el primer `apply` y el `destroy` final no es tiempo de
+cómputo facturado, ya que la instancia estuvo apagada la mayor parte de ese
+intervalo. La única ventana de cómputo real y continua fue la de esta sesión
+(2026-10-07): encendido → ingesta real PDS4 (T021/T022) → `apply` de Glue
+(T028) → job de Glue (T029/T030) → rotación de contraseña por el incidente de
+seguridad (ver nota en T020) → corrida completa de `mastcamz_full_pipeline`
+(T011) → evidencia de costo (T012) → `terraform destroy` (T013).
+
+**Resultado del `destroy`**: 55 de 57 recursos eliminados limpiamente. Los 2
+recursos restantes (`aws_s3_bucket.data_lake["raw"]` y `["gold"]`) fallaron a
+propósito con `BucketNotEmpty` — no tienen `force_destroy` (decisión deliberada,
+no un error): preservan los 76 productos PDS4 reales ingeridos y el agregado
+Gold como evidencia tangible del despliegue, y el almacenamiento S3 sin cómputo
+asociado no genera costo por hora (solo centavos de almacenamiento al mes).
+Verificado sin recursos de pago activos: `aws ec2 describe-instances` y
+`aws rds describe-db-instances` devuelven ambos vacíos (SC-006).
