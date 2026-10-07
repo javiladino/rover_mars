@@ -134,9 +134,9 @@ demostrados contra AWS real de punta a punta.
 
 **Propósito**: Principio VII (ADR para toda decisión no trivial) y Principio VIII (CI como guardián).
 
-- [ ] T035 [P] Redactar ADR-021 en `docs/ANALISIS_MODERN_DATA_STACK.md`: `IamAwsProvider` vs reescribir a `boto3` (research.md, Decisión 1)
-- [ ] T036 [P] Redactar ADR-022 en `docs/ANALISIS_MODERN_DATA_STACK.md`: fuente real `mastcamz_ops_raw` vs `sci_calibrated` (research.md, Decisión 2)
-- [ ] T037 [P] Redactar ADR-023 en `docs/ANALISIS_MODERN_DATA_STACK.md`: Glue Job vía JDBC vs EMR/Spark local, con los números medidos en T031 (research.md, Decisión 3)
+- [x] T035 [P] Redactar ADR-021 en `docs/ANALISIS_MODERN_DATA_STACK.md`: `IamAwsProvider` vs reescribir a `boto3` (research.md, Decisión 1) — hecho 2026-10-07, incluye los hallazgos reales del hop limit de IMDS y de la imagen de Airflow sin reconstruir
+- [x] T036 [P] Redactar ADR-022 en `docs/ANALISIS_MODERN_DATA_STACK.md`: fuente real `mastcamz_ops_raw` vs `sci_calibrated` (research.md, Decisión 2) — hecho 2026-10-07, incluye los 3 hallazgos reales (manifiesto sin rutas, sin checksum de contenido, listado HTTP duplicado)
+- [x] T037 [P] Redactar ADR-023 en `docs/ANALISIS_MODERN_DATA_STACK.md`: Glue Job vía JDBC vs EMR/Spark local, con los números medidos en T031 (research.md, Decisión 3) — hecho 2026-10-07, con la conclusión medida (Spark no se justifica a este volumen) y los 2 hallazgos de infraestructura (VPC endpoint de S3, conflicto de security group rules)
 - [ ] T038 Correr los 4 workflows de CI (`lint.yml`, `test.yml`, `dbt-ci.yml`, `docker-build.yml`) en verde antes de mergear la rama `002-aws-deployment` (Principio VIII)
 - [ ] T039 Actualizar `README.md`/`README.fr.md`/`README.es.md` si el flujo de datos visible cambió con esta feature (Restricciones de Presentación de la constitución)
 
