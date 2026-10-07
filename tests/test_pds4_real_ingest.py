@@ -24,8 +24,12 @@ from pds4_real_ingest import (
 
 # Listado de directorio real (recortado) de
 # mars2020_mastcamz_ops_raw/data/sol/00100/ids/edr/zcam/ -- ver research.md.
+# El primer producto reproduce la estructura real verificada 2026-10-07: un
+# <a href> para el ícono y otro para el nombre, ambos al mismo .IMG -- el
+# servidor real duplica así cada archivo en el listado.
 _SOL_100_DIR_LISTING_HTML = """
 <html><body>
+<a href="ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03.IMG"><img src="icon.png"></a>
 <a href="ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03.IMG">ZL6_..._026080J03.IMG</a>
 <a href="ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03.xml">ZL6_..._026080J03.xml</a>
 <a href="ZR2_0100_0675835150_098ECM_N0040218ZCAM01000_026080J04.IMG">ZR2_..._026080J04.IMG</a>
@@ -73,6 +77,9 @@ def test_list_sol_products_parses_img_links_and_ignores_previews():
 
     productos = list_sol_products(100, session=session)
 
+    # El fixture trae 2 <a href> para el primer producto (ícono + nombre,
+    # estructura real del servidor) y 1 para el segundo -- deben colapsar a
+    # 2 productos distintos, no 3.
     assert len(productos) == 2
     ids = {p.product_id for p in productos}
     assert "ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03" in ids

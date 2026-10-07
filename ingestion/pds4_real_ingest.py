@@ -129,6 +129,12 @@ def list_sol_products(sol: int, session=None) -> list[ProductoPDS4Real]:
     """
     Lista los productos .IMG reales de un sol pidiendo un único listado de
     directorio (ver research.md, Decisión 2 revisada).
+
+    Deduplica por nombre de archivo: el índice HTML real del servidor
+    (verificado 2026-10-07, tras una corrida real con 152 "productos" para
+    76 archivos distintos) trae un `<a href>` para el ícono y otro `<a
+    href>` para el nombre, ambos apuntando al mismo .IMG -- el regex de
+    `findall` los encuentra dos veces por archivo si no se deduplica.
     """
     if session is None:
         import requests
@@ -140,14 +146,18 @@ def list_sol_products(sol: int, session=None) -> list[ProductoPDS4Real]:
     response.raise_for_status()
 
     productos: list[ProductoPDS4Real] = []
+    vistos: set[str] = set()
     for href in _IMG_HREF_RE.findall(response.text):
         filename = PurePosixPath(href).stem
+        if filename in vistos:
+            continue
         try:
             parsed = parse_product_filename(filename)
         except ValueError:
             continue
         if parsed["sol"] != sol:
             continue
+        vistos.add(filename)
         productos.append(
             ProductoPDS4Real(
                 product_id=filename,
