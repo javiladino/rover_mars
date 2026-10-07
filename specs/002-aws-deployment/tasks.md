@@ -114,9 +114,17 @@
 
 **Prueba independiente**: forzar una lectura fuera de umbral y verificar que llega la alerta; abrir el dashboard sin credenciales de escritura.
 
-- [ ] T032 [P] [US4] Verificar si `detect_anomalies`/`build_gold_aggregates` ya publican al tópico SNS `rovermars-pipeline-alerts`; si no, agregar la publicación en el paso correspondiente de `airflow/dags/meda_pipeline.py`
-- [ ] T033 [US4] Con el stack corriendo, forzar una lectura fuera de umbral (usar los `MEDA_*` de demo ya documentados) y confirmar que llega el correo de alerta a la suscripción SNS ya confirmada
-- [ ] T034 [US4] Confirmar que `dashboard_cloudfront_domain` es accesible de solo lectura, sin credenciales de escritura
+- [ ] T032 [P] [US4] Verificar si `detect_anomalies`/`build_gold_aggregates` ya publican al tópico SNS `rovermars-pipeline-alerts`; si no, agregar la publicación en el paso correspondiente de `airflow/dags/meda_pipeline.py` — **revisado 2026-10-07 (solo lectura de código, sin infra encendida)**: no está implementado. `mastcamz_pipeline.py:459` tiene un comentario `# En AWS: publicar a SNS (ver ADR-016) — pendiente` — es código nuevo a escribir, no algo que ya exista. Queda pendiente para una sesión futura con AWS encendido
+- [ ] T033 [US4] Con el stack corriendo, forzar una lectura fuera de umbral (usar los `MEDA_*` de demo ya documentados) y confirmar que llega el correo de alerta a la suscripción SNS ya confirmada — **pendiente**: requiere EC2/RDS/SNS encendidos; la infraestructura ya se destruyó en T013 (decisión deliberada, ver quickstart.md anexo) antes de poder validar esto. Depende de T032 (publicación a SNS) primero
+- [ ] T034 [US4] Confirmar que `dashboard_cloudfront_domain` es accesible de solo lectura, sin credenciales de escritura — **pendiente**: la distribución CloudFront ya fue destruida en T013, no hay URL viva para probar en esta ventana
+
+**Nota (2026-10-07)**: T032-T034 (Escenario 4, prioridad P3 — la de menor prioridad de
+la spec) quedan sin cerrar en esta iteración porque la infraestructura se destruyó
+deliberadamente al terminar los Escenarios 1-3 (P1/P1/P2), para no mantener cómputo
+encendido sin necesidad (Principio VI). Cerrarlos requiere: implementar la
+publicación a SNS (T032, código nuevo), y una ventana nueva de AWS encendido para
+T033/T034. No bloquea el cierre de esta feature para portafolio — P1/P1/P2 ya están
+demostrados contra AWS real de punta a punta.
 
 **Checkpoint**: los 4 escenarios de spec.md quedan cubiertos.
 
