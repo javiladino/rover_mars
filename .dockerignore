@@ -1,0 +1,21 @@
+# Contexto de build de los 3 Dockerfiles (simulator/, ingestion/, airflow/),
+# todos con build context = raíz del repo (ver docker-compose.yml). Esto
+# evita mandar al daemon de Docker archivos que ningún Dockerfile necesita.
+.git/
+.github/
+.specify/
+.claude/
+specs/
+docs/
+notebooks/
+data/
+tests/
+infra/
+dashboard/
+*.md
+.env
+.env.*
+!.env.example
+**/__pycache__/
+**/*.pyc
+.DS_Store
