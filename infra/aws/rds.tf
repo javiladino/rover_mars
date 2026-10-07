@@ -51,6 +51,11 @@ resource "aws_db_instance" "rover_mars" {
   skip_final_snapshot     = true
   backup_retention_period = 1     # máximo permitido en cuentas de plan gratuito (FreeTierRestrictionError)
   deletion_protection     = false # portafolio/demo: se prioriza poder destruir con terraform destroy
+  # Sin esto, un cambio de password (ej. una rotación de emergencia) queda
+  # en cola para la próxima ventana de mantenimiento en vez de aplicarse al
+  # tiro -- agregado 2026-10-07 tras necesitar rotar la contraseña real por
+  # un secreto expuesto accidentalmente en un commit (ver git log).
+  apply_immediately = true
 
   # Nota: la extensión PostGIS se habilita post-creación con:
   #   CREATE EXTENSION IF NOT EXISTS postgis;
