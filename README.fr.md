@@ -210,6 +210,12 @@ rover_mars/
 - Fichiers binaires `.IMG` (données CCD 12 bits, big-endian)
 - Étiquettes XML PDS4 par image
 - Immuable — jamais modifié après réception
+- **Origine réelle, pas seulement simulée** : `ingestion/pds4_real_ingest.py` ingère de
+  vrais produits EDR Mastcam-Z depuis l'archive publique PDS de JPL/ASU
+  (`mars2020_mastcamz_ops_raw`), en plus des produits synthétiques du simulateur.
+  Chaque ligne d'`image_products` est marquée `origen = 'real' | 'simulado'`, les deux
+  sources coexistent dans le même modèle sans que l'une masque l'autre. Vérifié contre
+  une infrastructure AWS réelle — voir `specs/002-aws-deployment/` et l'ADR-022.
 
 ### Couche BRONZE (MinIO : `mastcamz-bronze`)
 - Métadonnées JSON validées et cataloguées
@@ -453,7 +459,6 @@ et documenté pas à pas dans la Phase 4 du guide d'implémentation (ES).
 - **Modèle de détection d'anomalies** — Isolation Forest sur le flux de capteurs MEDA
 - **Installation à la Cité de l'Espace** — Prototype de visualisation en dôme à 360°
 - **Intégration ESA ExoMars** — Pipeline de données du spectromètre Raman
-- **Ingestion de données PDS4 réelles** — Archive publique ASU/NASA Mastcam-Z
 
 ---
 
