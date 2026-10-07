@@ -180,6 +180,7 @@ services:
       MINIO_ACCESS_KEY: "${AWS_ACCESS_KEY_ID}"
       MINIO_SECRET_KEY: "${AWS_SECRET_ACCESS_KEY}"
       AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET_RAW: "${S3_BUCKET_RAW}"
       S3_BUCKET_BRONZE: "${S3_BUCKET_BRONZE}"
       POSTGRES_CONN: "postgresql://${RDS_USER}:${RDS_PASSWORD}@${RDS_ENDPOINT}/rover_mars"
       DSN_STATION: "${DSN_STATION:-Goldstone}"
