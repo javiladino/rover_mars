@@ -134,10 +134,7 @@ services:
 
   airflow_init:
     <<: *airflow-common
-    command: >
-      bash -c "airflow db migrate &&
-               airflow users create --username ${AIRFLOW_ADMIN_USER:-admin} --firstname Admin --lastname User
-                 --role Admin --email admin@rover.mars --password ${AIRFLOW_ADMIN_PASSWORD}"
+    command: bash -c "airflow db migrate && airflow users create --username ${AIRFLOW_ADMIN_USER:-admin} --firstname Admin --lastname User --role Admin --email admin@rover.mars --password ${AIRFLOW_ADMIN_PASSWORD}"
     restart: "no"
 
   jupyter:
@@ -183,6 +180,7 @@ services:
       MINIO_ACCESS_KEY: "${AWS_ACCESS_KEY_ID}"
       MINIO_SECRET_KEY: "${AWS_SECRET_ACCESS_KEY}"
       AWS_REGION: "${AWS_REGION:-us-east-1}"
+      S3_BUCKET_RAW: "${S3_BUCKET_RAW}"
       S3_BUCKET_BRONZE: "${S3_BUCKET_BRONZE}"
       POSTGRES_CONN: "postgresql://${RDS_USER}:${RDS_PASSWORD}@${RDS_ENDPOINT}/rover_mars"
       DSN_STATION: "${DSN_STATION:-Goldstone}"

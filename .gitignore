@@ -32,6 +32,12 @@ dbt/logs/
 infra/**/.terraform/
 infra/**/terraform.tfstate
 infra/**/terraform.tfstate.backup
+# Terraform también genera backups con timestamp (terraform.tfstate.<unix
+# time>.backup, ej. tras un `terraform state rm`) -- el patrón literal de
+# arriba no los cubre. Contienen secretos en texto plano (ej. la contraseña
+# maestra de RDS en la conexión JDBC de Glue) -- nunca deben versionarse
+# (hallazgo real 2026-10-07: uno de estos se commiteó por accidente).
+infra/**/terraform.tfstate.*.backup
 infra/**/*.tfplan
 
 # ── Datos generados por la simulación (no versionar) ────────
@@ -56,3 +62,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+
+# Artefactos locales de Terraform
+infra/aws/tfplan
+infra/aws/lambda/*.zip

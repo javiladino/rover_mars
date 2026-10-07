@@ -47,8 +47,13 @@ resource "aws_glue_crawler" "gold_parquet" {
   # gastar crédito sin uso — ver ADR-020).
   schedule = null
 
+  # Apunta al JSON real que build_gold_aggregates escribe hoy
+  # (aggregates/gold_sol_summary.json), no a parquet/ -- ese prefijo nunca
+  # se llegó a escribir (el cambio a Parquet de la Fase 4 del ADR-015
+  # sigue pendiente, ver comentario arriba). Hallazgo real 2026-10-07 al
+  # intentar probar Athena de punta a punta antes de terraform destroy.
   s3_target {
-    path = "s3://${aws_s3_bucket.data_lake["gold"].bucket}/parquet/"
+    path = "s3://${aws_s3_bucket.data_lake["gold"].bucket}/aggregates/"
   }
 }
 

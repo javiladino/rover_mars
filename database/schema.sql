@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS image_products (
     product_type          TEXT,                                 -- EBB | ERG | ERZ | EZT | ENB
     processing_stage      TEXT        DEFAULT 'BRONZE',
     quality_flag          TEXT        DEFAULT 'GOOD',
+    origen                TEXT        NOT NULL DEFAULT 'simulado'
+                                       CHECK (origen IN ('real', 'simulado')),
 
     -- MinIO storage keys (Medallion layers)
     minio_raw_key         TEXT,
@@ -66,6 +68,14 @@ CREATE TABLE IF NOT EXISTS image_products (
 
     updated_at            TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ALTER TABLE idempotente: cubre bases ya existentes (como la RDS de AWS)
+-- donde image_products se creó antes de que origen existiera. En una base
+-- nueva (initdb local), esta sentencia no hace nada porque la columna ya
+-- viene en el CREATE TABLE de arriba. Ver specs/002-aws-deployment/data-model.md.
+ALTER TABLE image_products
+  ADD COLUMN IF NOT EXISTS origen TEXT NOT NULL DEFAULT 'simulado'
+    CHECK (origen IN ('real', 'simulado'));
 
 -- Indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_ip_sol          ON image_products (sol);
