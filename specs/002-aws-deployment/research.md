@@ -61,24 +61,53 @@ duplicando/contradiciendo un cálculo ya hecho — rompe el contrato Medallion
 El bundle `ops_raw` es el correspondiente real a una capa Raw inmutable y
 sin calibrar.
 
-**Mecanismo de descarga acotada**: `mars2020_mastcamz_ops_raw/data/` expone
-`collection_data_inventory.csv` (~44 MB) — un manifiesto único con todos los
-productos del bundle. Se descarga una vez y se usa para elegir un
-subconjunto acotado (1-2 sols) sin recorrer el árbol de directorios del
-servicio público.
+**Mecanismo de descubrimiento (REVISADO 2026-10-07, tras una corrida real
+fallida — ver tarea T021 de tasks.md)**: la versión original de esta
+decisión asumía que `collection_data_inventory.csv` (~44 MB, expuesto en
+`mars2020_mastcamz_ops_raw/data/`) era un manifiesto con columnas de ruta y
+checksum por producto. **Eso era incorrecto** — se descubrió recién al
+correr el script contra la red real, no al inspeccionar el archivo antes de
+escribir código. El CSV es un inventario PDS4 estándar de **solo 2 columnas
+sin encabezado**: estado de miembro + LIDVID en minúscula (ej.
+`P,urn:nasa:pds:mars2020_mastcamz_ops_raw:data:zl0_0001_0667035647_...::3.0`).
+No tiene ruta de archivo ni checksum utilizables para descargar, y el LIDVID
+no alcanza para reconstruir el nombre real del archivo porque PDS4
+normaliza los identificadores a minúscula, perdiendo la mayúscula/minúscula
+real de los campos del nombre.
 
-**Formato real de producto** (confirmado en `sci_calibrated`, mismo esquema
-de nombre en `ops_raw`):
+El mecanismo real, verificado navegando el archivo público directamente, es
+más profundo de lo asumido:
 
 ```
-ZL6_0100_0675828555_098IOF_N0040218ZCAM01000_026080A03.IMG
-ZL6_0100_0675828555_098IOF_N0040218ZCAM01000_026080A03.xml
+mars2020_mastcamz_ops_raw/data/sol/{sol:05d}/ids/edr/zcam/
 ```
 
-Prefijo de cámara (`ZL6`=izquierda, `ZR2`=derecha), sol, SCLK, tipo de
-producto, resto de campos de la misión real — **distinto** del formato
-`M20_MCZL_0001_0000700032_000RZL_N_01` documentado hoy en el README del
-simulador, que es una convención simplificada e inventada.
+(nótese: la carpeta de sol usa **5 dígitos**, no 4 como en `sci_calibrated`).
+Esa carpeta expone un listado HTTP estándar con los `.IMG`/`.xml`/`.JPG` del
+sol. Sigue siendo acotado en el sentido que importa para la spec (un `GET`
+por sol pedido, no un recorrido del árbol completo de 658 sols) — el límite
+pasó de "un manifiesto único" a "una carpeta por sol", pero el principio
+(no recorrer todo el archivo) se mantiene.
+
+**Checksum**: al no venir en el manifiesto, se lee de la propia etiqueta
+PDS4 (`.xml`) de cada producto, que trae su `<md5_checksum>` oficial — más
+fiel al dominio real que inventar una columna que no existe.
+
+**Formato real de producto** (confirmado navegando `ops_raw` directamente,
+no solo `sci_calibrated`):
+
+```
+ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03.IMG
+ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03.xml
+```
+
+Prefijo de cámara (`ZL`=izquierda, `ZR`=derecha), sol (4 dígitos dentro del
+nombre, aunque la carpeta use 5), SCLK, resto de campos de la misión real —
+**distinto** del formato `M20_MCZL_0001_0000700032_000RZL_N_01` documentado
+hoy en el README del simulador, que es una convención simplificada e
+inventada. El código de producto (`098ECM` acá vs. `098IOF` en
+`sci_calibrated`) varía según el nivel de procesamiento — ECM es
+demosaicado sin calibrar, coherente con que este es el bundle Raw.
 
 **Hallazgo derivado (fuera de alcance de esta feature, se deja registrado)**:
 el Principio I exige marcar como "simplificación deliberada" cualquier

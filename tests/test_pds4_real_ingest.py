@@ -2,33 +2,58 @@
 Tests de ingestion/pds4_real_ingest.py.
 
 Ninguno de estos tests toca la red real ni una base de datos real -- el
-manifiesto, la descarga y el cursor de Postgres se simulan con objetos de
-prueba. Ver specs/002-aws-deployment/research.md (Decisión 2) para el
-formato real de producto que estos tests fijan.
+listado de directorio, la etiqueta PDS4 y el cursor de Postgres se simulan
+con objetos de prueba. Ver specs/002-aws-deployment/research.md (Decisión 2,
+versión revisada) para el mecanismo real de descubrimiento de productos.
 """
 
+import hashlib
 from unittest.mock import MagicMock
 
 import pytest
 from pds4_real_ingest import (
     ChecksumMismatchError,
     download_and_validate,
+    fetch_label_checksum,
+    list_sol_products,
     parse_product_filename,
     quarantine_image_product_real,
-    select_bounded_subset,
     upsert_image_product_real,
 )
+
+# Listado de directorio real (recortado) de
+# mars2020_mastcamz_ops_raw/data/sol/00100/ids/edr/zcam/ -- ver research.md.
+_SOL_100_DIR_LISTING_HTML = """
+<html><body>
+<a href="ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03.IMG">ZL6_..._026080J03.IMG</a>
+<a href="ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03.xml">ZL6_..._026080J03.xml</a>
+<a href="ZR2_0100_0675835150_098ECM_N0040218ZCAM01000_026080J04.IMG">ZR2_..._026080J04.IMG</a>
+<a href="ZR2_0100_0675835150_098ECM_N0040218ZCAM01000_026080J04.xml">ZR2_..._026080J04.xml</a>
+<a href="ZL6_0100_0675828555_098EJP_N0040218ZCAM01000_026080J03.JPG">preview, debe ignorarse</a>
+</body></html>
+"""
+
+
+def _fake_session(text: str = "", content: bytes = b""):
+    session = MagicMock()
+    response = MagicMock()
+    response.text = text
+    response.content = content
+    response.raise_for_status = MagicMock()
+    session.get.return_value = response
+    return session
+
 
 # ── parse_product_filename ──────────────────────────────────────────────
 
 
 def test_parse_product_filename_left_camera():
-    result = parse_product_filename("ZL6_0100_0675828555_098IOF_N0040218ZCAM01000_026080A03")
+    result = parse_product_filename("ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03")
     assert result == {"camera_eye": "LEFT", "sol": 100, "sclk": 675828555.0}
 
 
 def test_parse_product_filename_right_camera():
-    result = parse_product_filename("ZR2_0100_0675835150_098IOF_N0040218ZCAM01000_026080A04")
+    result = parse_product_filename("ZR2_0100_0675835150_098ECM_N0040218ZCAM01000_026080J04")
     assert result == {"camera_eye": "RIGHT", "sol": 100, "sclk": 675835150.0}
 
 
@@ -39,98 +64,110 @@ def test_parse_product_filename_rejects_unknown_format():
         parse_product_filename("M20_MCZL_0001_0000700032_000RZL_N_01")
 
 
-# ── select_bounded_subset ───────────────────────────────────────────────
+# ── list_sol_products ───────────────────────────────────────────────────
 
 
-def test_select_bounded_subset_filters_by_sol_and_detects_columns():
-    manifest_rows = [
-        {
-            "File Path": "data/0100/ZL6_0100_0675828555_098IOF_N0040218ZCAM01000_026080A03.IMG",
-            "MD5 Checksum": "abc123",
-        },
-        {
-            "File Path": "data/0200/ZL6_0200_0680000000_098IOF_N0040218ZCAM01000_026080A05.IMG",
-            "MD5 Checksum": "def456",
-        },
-        {
-            # No es .IMG -- debe ignorarse.
-            "File Path": "data/0100/ZL6_0100_0675828555_098IOF_N0040218ZCAM01000_026080A03.xml",
-            "MD5 Checksum": "xxxxxx",
-        },
-    ]
+def test_list_sol_products_parses_img_links_and_ignores_previews():
+    session = _fake_session(text=_SOL_100_DIR_LISTING_HTML)
 
-    productos = select_bounded_subset(manifest_rows, sols=[100])
+    productos = list_sol_products(100, session=session)
 
-    assert len(productos) == 1
-    producto = productos[0]
-    assert producto.sol == 100
-    assert producto.camera_eye == "LEFT"
-    assert producto.checksum_manifiesto == "abc123"
-    assert producto.img_url.endswith(
-        "data/0100/ZL6_0100_0675828555_098IOF_N0040218ZCAM01000_026080A03.IMG"
+    assert len(productos) == 2
+    ids = {p.product_id for p in productos}
+    assert "ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03" in ids
+    assert "ZR2_0100_0675835150_098ECM_N0040218ZCAM01000_026080J04" in ids
+
+    left = next(p for p in productos if p.camera_eye == "LEFT")
+    assert left.sol == 100
+    assert left.img_url.endswith(
+        "data/sol/00100/ids/edr/zcam/ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03.IMG"
     )
-    assert producto.label_url.endswith(
-        "data/0100/ZL6_0100_0675828555_098IOF_N0040218ZCAM01000_026080A03.xml"
+    assert left.label_url.endswith(
+        "data/sol/00100/ids/edr/zcam/ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03.xml"
     )
 
 
-def test_select_bounded_subset_skips_unparseable_filenames():
-    manifest_rows = [{"File Path": "data/misc/readme.IMG", "MD5 Checksum": "x"}]
-    assert select_bounded_subset(manifest_rows, sols=[100]) == []
+def test_list_sol_products_empty_listing():
+    session = _fake_session(text="<html><body>(sin productos)</body></html>")
+    assert list_sol_products(100, session=session) == []
 
 
-def test_select_bounded_subset_empty_manifest():
-    assert select_bounded_subset([], sols=[100]) == []
+# ── fetch_label_checksum ────────────────────────────────────────────────
+
+
+def test_fetch_label_checksum_extracts_md5():
+    expected_checksum = hashlib.md5(b"contenido de referencia").hexdigest()
+    label_xml = f"<product><md5_checksum>{expected_checksum}</md5_checksum></product>"
+    session = _fake_session(text=label_xml)
+
+    checksum = fetch_label_checksum("http://example/label.xml", session=session)
+
+    assert checksum == expected_checksum
+
+
+def test_fetch_label_checksum_returns_none_when_absent():
+    session = _fake_session(text="<product><no_checksum_here/></product>")
+    assert fetch_label_checksum("http://example/label.xml", session=session) is None
 
 
 # ── download_and_validate ───────────────────────────────────────────────
 
 
-def _fake_session(content: bytes):
-    session = MagicMock()
-    response = MagicMock()
-    response.content = content
-    response.raise_for_status = MagicMock()
-    session.get.return_value = response
-    return session
+def _producto_de_prueba():
+    productos = list_sol_products(100, session=_fake_session(text=_SOL_100_DIR_LISTING_HTML))
+    return productos[0]
 
 
 def test_download_and_validate_accepts_matching_checksum():
-    import hashlib
-
     content = b"contenido de prueba"
     checksum = hashlib.md5(content).hexdigest()
-    productos = select_bounded_subset(
-        [{"File Path": "data/0100/ZL6_0100_0675828555_098IOF_X.IMG", "MD5 Checksum": checksum}],
-        sols=[100],
-    )
-    producto = productos[0]
+    label_xml = f"<product><md5_checksum>{checksum}</md5_checksum></product>"
 
-    result = download_and_validate(producto, session=_fake_session(content))
+    # Dos llamadas de red: primero la etiqueta (texto), después la imagen (bytes).
+    session = MagicMock()
+    label_response = MagicMock(text=label_xml)
+    label_response.raise_for_status = MagicMock()
+    img_response = MagicMock(content=content)
+    img_response.raise_for_status = MagicMock()
+    session.get.side_effect = [label_response, img_response]
+
+    result = download_and_validate(_producto_de_prueba(), session=session)
     assert result == content
 
 
 def test_download_and_validate_raises_on_checksum_mismatch():
     content = b"contenido real"
-    productos = select_bounded_subset(
-        [{"File Path": "data/0100/ZL6_0100_0675828555_098IOF_X.IMG", "MD5 Checksum": "no-coincide"}],
-        sols=[100],
-    )
-    producto = productos[0]
+    label_xml = "<product><md5_checksum>00000000000000000000000000000000</md5_checksum></product>"
+
+    session = MagicMock()
+    label_response = MagicMock(text=label_xml)
+    label_response.raise_for_status = MagicMock()
+    img_response = MagicMock(content=content)
+    img_response.raise_for_status = MagicMock()
+    session.get.side_effect = [label_response, img_response]
 
     with pytest.raises(ChecksumMismatchError):
-        download_and_validate(producto, session=_fake_session(content))
+        download_and_validate(_producto_de_prueba(), session=session)
+
+
+def test_download_and_validate_accepts_when_label_has_no_checksum():
+    content = b"contenido sin checksum en la etiqueta"
+    session = MagicMock()
+    label_response = MagicMock(text="<product/>")
+    label_response.raise_for_status = MagicMock()
+    img_response = MagicMock(content=content)
+    img_response.raise_for_status = MagicMock()
+    session.get.side_effect = [label_response, img_response]
+
+    result = download_and_validate(_producto_de_prueba(), session=session)
+    assert result == content
 
 
 # ── upsert / cuarentena (Postgres simulado) ─────────────────────────────
 
 
 def test_upsert_image_product_real_marks_origen_real():
-    productos = select_bounded_subset(
-        [{"File Path": "data/0100/ZL6_0100_0675828555_098IOF_X.IMG", "MD5 Checksum": "abc"}],
-        sols=[100],
-    )
-    producto = productos[0]
+    producto = _producto_de_prueba()
     cursor = MagicMock()
 
     upsert_image_product_real(cursor, producto, raw_key="0100/ZL6_0100_...IMG")
@@ -138,17 +175,13 @@ def test_upsert_image_product_real_marks_origen_real():
     cursor.execute.assert_called_once()
     sql, params = cursor.execute.call_args[0]
     assert "origen" in sql
-    assert "'real'" in sql or "real" in params
+    assert "'real'" in sql
     assert producto.product_id in params
     assert "ON CONFLICT (product_id) DO NOTHING" in sql
 
 
 def test_quarantine_image_product_real_records_reason():
-    productos = select_bounded_subset(
-        [{"File Path": "data/0100/ZL6_0100_0675828555_098IOF_X.IMG", "MD5 Checksum": "abc"}],
-        sols=[100],
-    )
-    producto = productos[0]
+    producto = _producto_de_prueba()
     cursor = MagicMock()
 
     quarantine_image_product_real(cursor, producto, motivo="checksum no coincide")

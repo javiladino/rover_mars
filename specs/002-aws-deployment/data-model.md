@@ -39,7 +39,7 @@ existen.
 | `sol` | Segundo campo del nombre de archivo | Ya existe en `image_products.sol` |
 | `sclk` | Tercer campo del nombre de archivo | Ya existe en `image_products` |
 | `camera_eye` | `ZL6` → `LEFT`, `ZR2` → `RIGHT` | Mapeo explícito, ya existe la columna |
-| `checksum_fuente` | Del manifiesto `collection_data_inventory.csv` o de la etiqueta `.xml` | Se valida contra el archivo descargado antes de aceptar el producto (FR-003/FR-004) |
+| `checksum_fuente` | De la etiqueta PDS4 (`.xml`) del producto, no del manifiesto — ver research.md Decisión 2 (revisada) | Se valida contra el archivo descargado antes de aceptar el producto (FR-003/FR-004) |
 | `origen` | Constante `'real'` para estos registros | Columna nueva (ver arriba) |
 | `raw_s3_key` | Ruta del objeto en el bucket `raw` | Ya existe el patrón de key en el código del simulador; se reutiliza |
 

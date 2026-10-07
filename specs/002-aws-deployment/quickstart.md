@@ -43,7 +43,7 @@ encendidos.
    `mastcamz_ops_raw` (ver `research.md`, Decisión 2) y filtrar un
    subconjunto acotado (1-2 sols).
 2. Para cada producto del subconjunto: descargar `.IMG` + `.xml`, verificar
-   checksum contra el manifiesto, subir a `raw` con el `product_id` real.
+   checksum contra la etiqueta PDS4 del producto, subir a `raw` con el `product_id` real.
 3. Insertar en `image_products` con `origen = 'real'` (ver `data-model.md`).
 4. Verificación (requiere RDS encendido):
    ```sql

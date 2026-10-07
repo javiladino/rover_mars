@@ -8,18 +8,33 @@ puntual, pensado para un subconjunto chico de sols (Escenario 2 de
 specs/002-aws-deployment/spec.md). El simulador sigue siendo la única fuente
 del tramo CCSDS/DSN -- este script no lo reemplaza, convive con él.
 
-Formato real de producto (verificado contra el archivo público, no inventado):
-    ZL6_0100_0675828555_098IOF_N0040218ZCAM01000_026080A03.IMG
-    ZL6_0100_0675828555_098IOF_N0040218ZCAM01000_026080A03.xml
-Prefijo de cámara (ZL=izquierda, ZR=derecha), sol, SCLK, resto de campos de
-la misión real. Distinto del formato M20_MCZL_... que documenta el
-simulador, que es una convención simplificada, no la real (ver research.md).
+Mecanismo de descubrimiento (revisado 2026-10-07 tras una corrida real
+fallida -- ver research.md Decisión 2 para la versión completa de esta
+historia): el manifiesto `collection_data_inventory.csv` del bundle NO
+tiene encabezado ni columnas de ruta/checksum -- es un inventario PDS4
+estándar de solo 2 columnas (estado de miembro + LIDVID en minúscula), sin
+información suficiente para descargar. El mecanismo real es listar
+directamente la carpeta del sol pedido:
+    {BUNDLE_ROOT_URL}/data/sol/{sol:05d}/ids/edr/zcam/
+Sigue siendo acotado (un GET por sol pedido, no un recorrido del árbol
+completo de 658 sols) -- solo que el límite es "una carpeta por sol", no
+"un manifiesto único".
+
+Formato real de producto (verificado contra el archivo público):
+    ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03.IMG
+    ZL6_0100_0675828555_098ECM_N0040218ZCAM01000_026080J03.xml
+Prefijo de cámara (ZL=izquierda, ZR=derecha), sol (4 dígitos, aunque la
+carpeta use 5), SCLK, resto de campos de la misión real. Distinto del
+formato M20_MCZL_... que documenta el simulador, que es una convención
+simplificada, no la real (ver research.md).
+
+El checksum no viene en el manifiesto -- se lee de la etiqueta PDS4 (.xml)
+de cada producto, que trae su propio <md5_checksum> oficial.
 """
 
 from __future__ import annotations
 
 import argparse
-import csv
 import hashlib
 import io
 import logging
@@ -31,7 +46,6 @@ from pathlib import PurePosixPath
 logger = logging.getLogger(__name__)
 
 BUNDLE_ROOT_URL = "https://planetarydata.jpl.nasa.gov/img/data/mars2020/mars2020_mastcamz_ops_raw"
-MANIFEST_URL = f"{BUNDLE_ROOT_URL}/data/collection_data_inventory.csv"
 
 POSTGRES_CONN = os.getenv(
     "POSTGRES_CONN", "postgresql://rover:rover2024@localhost:5432/rover_mars"
@@ -42,11 +56,13 @@ RAW_BUCKET = os.getenv("S3_BUCKET_RAW", "mastcamz-raw")
 _CAMERA_PREFIX_TO_EYE = {"ZL": "LEFT", "ZR": "RIGHT"}
 
 _FILENAME_RE = re.compile(r"^(?P<camera>Z[LR])\w?_(?P<sol>\d{4})_(?P<sclk>\d+)_.+$")
+_IMG_HREF_RE = re.compile(r'href="([^"]+\.IMG)"', re.IGNORECASE)
+_MD5_LABEL_RE = re.compile(r"<md5_checksum>\s*([a-fA-F0-9]{32})\s*</md5_checksum>")
 
 
 @dataclass(frozen=True)
 class ProductoPDS4Real:
-    """Un producto real identificado en el manifiesto -- ver data-model.md."""
+    """Un producto real identificado en la carpeta de su sol -- ver data-model.md."""
 
     product_id: str  # nombre de archivo sin extensión
     sol: int
@@ -54,11 +70,10 @@ class ProductoPDS4Real:
     camera_eye: str  # "LEFT" | "RIGHT"
     img_url: str
     label_url: str
-    checksum_manifiesto: str | None
 
 
 class ChecksumMismatchError(ValueError):
-    """El contenido descargado no coincide con el checksum del manifiesto (FR-004)."""
+    """El contenido descargado no coincide con el checksum de la etiqueta PDS4 (FR-004)."""
 
 
 def parse_product_filename(filename_without_ext: str) -> dict:
@@ -81,113 +96,102 @@ def parse_product_filename(filename_without_ext: str) -> dict:
     }
 
 
-def _detect_column(fieldnames: list[str], *candidates: str) -> str | None:
-    """
-    Busca, sin distinguir mayúsculas, una columna del manifiesto cuyo nombre
-    contenga alguno de los `candidates`. Devuelve None si ninguna coincide,
-    en vez de fallar -- quien llama decide si esa columna es obligatoria.
-
-    El manifiesto real (~44 MB, ver research.md Decisión 2) no se inspeccionó
-    celda por celda en esta sesión (no se descargó un archivo de 44 MB solo
-    para verificar encabezados). Antes de la primera corrida real (tarea
-    T021 de tasks.md), confirmar los nombres reales de columna con:
-        curl -s -r 0-2000 <MANIFEST_URL>
-    y ajustar las listas de `candidates` en select_bounded_subset() si no
-    coinciden -- fetch_manifest()/select_bounded_subset() están separadas de
-    la descarga de red precisamente para poder ajustar esto sin tocar el
-    resto del script.
-    """
-    lowered = {name.lower(): name for name in fieldnames}
-    for candidate in candidates:
-        for lower_name, original_name in lowered.items():
-            if candidate in lower_name:
-                return original_name
-    return None
+def _sol_zcam_dir_url(sol: int) -> str:
+    """La carpeta real de un sol en el bundle ops_raw -- ver docstring del módulo."""
+    return f"{BUNDLE_ROOT_URL}/data/sol/{sol:05d}/ids/edr/zcam/"
 
 
-def select_bounded_subset(
-    manifest_rows: list[dict], sols: list[int]
-) -> list[ProductoPDS4Real]:
+def list_sol_products(sol: int, session=None) -> list[ProductoPDS4Real]:
     """
-    Filtra el manifiesto ya descargado a un subconjunto acotado de sols
-    (FR del Escenario 2 de spec.md). No recorre el árbol del archivo --
-    opera sobre las filas que ya trajo fetch_manifest().
+    Lista los productos .IMG reales de un sol pidiendo un único listado de
+    directorio (ver research.md, Decisión 2 revisada).
     """
-    if not manifest_rows:
-        return []
+    if session is None:
+        import requests
 
-    fieldnames = list(manifest_rows[0].keys())
-    file_col = _detect_column(fieldnames, "file", "path", "name")
-    if file_col is None:
-        raise ValueError(
-            f"No se encontró columna de nombre de archivo en {fieldnames} -- "
-            "ver nota de _detect_column sobre verificar el manifiesto real."
-        )
-    checksum_col = _detect_column(fieldnames, "md5", "checksum", "hash")
-    if checksum_col is None:
-        logger.warning("El manifiesto no tiene columna de checksum reconocible")
+        session = requests.Session()
+
+    dir_url = _sol_zcam_dir_url(sol)
+    response = session.get(dir_url, timeout=30)
+    response.raise_for_status()
 
     productos: list[ProductoPDS4Real] = []
-    for row in manifest_rows:
-        file_path = row[file_col]
-        if not file_path.lower().endswith(".img"):
-            continue
-
-        filename = PurePosixPath(file_path).stem
+    for href in _IMG_HREF_RE.findall(response.text):
+        filename = PurePosixPath(href).stem
         try:
             parsed = parse_product_filename(filename)
         except ValueError:
             continue
-        if parsed["sol"] not in sols:
+        if parsed["sol"] != sol:
             continue
-
-        label_path = str(PurePosixPath(file_path).with_suffix(".xml"))
         productos.append(
             ProductoPDS4Real(
                 product_id=filename,
                 sol=parsed["sol"],
                 sclk=parsed["sclk"],
                 camera_eye=parsed["camera_eye"],
-                img_url=f"{BUNDLE_ROOT_URL}/{file_path.lstrip('/')}",
-                label_url=f"{BUNDLE_ROOT_URL}/{label_path.lstrip('/')}",
-                checksum_manifiesto=row.get(checksum_col) if checksum_col else None,
+                img_url=f"{dir_url}{filename}.IMG",
+                label_url=f"{dir_url}{filename}.xml",
             )
         )
     return productos
 
 
-def fetch_manifest(session=None) -> list[dict]:
-    """Descarga el manifiesto una sola vez (~44 MB) y lo devuelve parseado."""
+def select_bounded_subset(sols: list[int], session=None) -> list[ProductoPDS4Real]:
+    """
+    Reúne los productos reales de un subconjunto acotado de sols (FR del
+    Escenario 2 de spec.md). Un GET por sol pedido -- no recorre el árbol
+    completo del archivo.
+    """
+    productos: list[ProductoPDS4Real] = []
+    for sol in sols:
+        productos.extend(list_sol_products(sol, session=session))
+    return productos
+
+
+def fetch_label_checksum(label_url: str, session=None) -> str | None:
+    """Lee el checksum MD5 oficial de la etiqueta PDS4 (.xml) de un producto."""
     if session is None:
         import requests
 
         session = requests.Session()
-    response = session.get(MANIFEST_URL, timeout=60)
+    response = session.get(label_url, timeout=30)
     response.raise_for_status()
-    return list(csv.DictReader(io.StringIO(response.text)))
+    match = _MD5_LABEL_RE.search(response.text)
+    return match.group(1) if match else None
 
 
 def download_and_validate(producto: ProductoPDS4Real, session=None) -> bytes:
     """
-    Descarga el .IMG de un producto y valida su checksum MD5 contra el
-    manifiesto. Lanza ChecksumMismatchError si no coincide -- quien llama
-    decide qué hacer (FR-004: poner en cuarentena, no pasar a Silver).
+    Descarga el .IMG de un producto y valida su checksum MD5 contra el de su
+    etiqueta PDS4. Lanza ChecksumMismatchError si no coincide -- quien llama
+    decide qué hacer (FR-004: poner en cuarentena, no pasar a Silver). Si la
+    etiqueta no trae checksum reconocible, se acepta el producto igual pero
+    se deja constancia en el log (no se inventa una validación que no existe).
     """
     if session is None:
         import requests
 
         session = requests.Session()
+
+    checksum_esperado = fetch_label_checksum(producto.label_url, session=session)
+
     response = session.get(producto.img_url, timeout=30)
     response.raise_for_status()
     content = response.content
 
-    if producto.checksum_manifiesto:
+    if checksum_esperado:
         actual = hashlib.md5(content).hexdigest()
-        if actual.lower() != producto.checksum_manifiesto.lower():
+        if actual.lower() != checksum_esperado.lower():
             raise ChecksumMismatchError(
                 f"Checksum no coincide para {producto.product_id}: "
-                f"manifiesto={producto.checksum_manifiesto} calculado={actual}"
+                f"etiqueta={checksum_esperado} calculado={actual}"
             )
+    else:
+        logger.warning(
+            "Etiqueta PDS4 de %s sin <md5_checksum> reconocible -- aceptado sin validar",
+            producto.product_id,
+        )
     return content
 
 
@@ -250,12 +254,10 @@ def quarantine_image_product_real(cursor, producto: ProductoPDS4Real, motivo: st
 
 
 def ingest(sols: list[int]) -> None:
-    """Orquesta el flujo completo: manifiesto -> descarga -> S3 -> Postgres."""
+    """Orquesta el flujo completo: listado por sol -> descarga -> S3 -> Postgres."""
     import psycopg2
 
-    logger.info("Descargando manifiesto de %s", MANIFEST_URL)
-    manifest_rows = fetch_manifest()
-    productos = select_bounded_subset(manifest_rows, sols)
+    productos = select_bounded_subset(sols)
     logger.info("Subconjunto acotado: %d productos para sols=%s", len(productos), sols)
 
     pg_conn = psycopg2.connect(POSTGRES_CONN)
@@ -271,7 +273,9 @@ def ingest(sols: list[int]) -> None:
 
                 raw_key = upload_to_raw(producto, content)
                 upsert_image_product_real(cursor, producto, raw_key)
-                logger.info("Ingerido: %s (sol=%s, %s)", producto.product_id, producto.sol, producto.camera_eye)
+                logger.info(
+                    "Ingerido: %s (sol=%s, %s)", producto.product_id, producto.sol, producto.camera_eye
+                )
     finally:
         pg_conn.close()
 
