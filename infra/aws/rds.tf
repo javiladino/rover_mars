@@ -13,6 +13,20 @@ resource "aws_security_group" "rds" {
     security_groups = [aws_security_group.ec2_app.id]
   }
 
+  # Movido a bloque inline (2026-10-07, tras un hallazgo real de T029): un
+  # aws_security_group con bloques ingress {} inline y, a la vez, una regla
+  # manejada por un aws_security_group_rule separado (como estaba antes en
+  # glue_job.tf) hace que Terraform compita por el control del set de
+  # reglas -- cada plan intentaba BORRAR esta regla porque no estaba
+  # declarada acá. Ver glue_job.tf para el security group de origen.
+  ingress {
+    description     = "Postgres desde la conexion JDBC de Glue"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.glue_jdbc.id]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -35,7 +49,7 @@ resource "aws_db_instance" "rover_mars" {
   db_subnet_group_name    = aws_db_subnet_group.default.name
   publicly_accessible     = false
   skip_final_snapshot     = true
-  backup_retention_period = 1 # máximo permitido en cuentas de plan gratuito (FreeTierRestrictionError)
+  backup_retention_period = 1     # máximo permitido en cuentas de plan gratuito (FreeTierRestrictionError)
   deletion_protection     = false # portafolio/demo: se prioriza poder destruir con terraform destroy
 
   # Nota: la extensión PostGIS se habilita post-creación con:

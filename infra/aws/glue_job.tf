@@ -38,17 +38,11 @@ resource "aws_security_group_rule" "glue_jdbc_self_reference" {
   source_security_group_id = aws_security_group.glue_jdbc.id
 }
 
-# RDS acepta conexiones del SG de Glue además del EC2 de Airflow (ver rds.tf,
-# que ya tiene la regla hacia aws_security_group.ec2_app).
-resource "aws_security_group_rule" "rds_from_glue" {
-  type                     = "ingress"
-  from_port                = 5432
-  to_port                  = 5432
-  protocol                 = "tcp"
-  security_group_id        = aws_security_group.rds.id
-  source_security_group_id = aws_security_group.glue_jdbc.id
-  description              = "Postgres desde la conexion JDBC de Glue"
-}
+# RDS acepta conexiones del SG de Glue además del EC2 de Airflow -- la regla
+# vive como bloque ingress {} inline en aws_security_group.rds (rds.tf), no
+# como aws_security_group_rule separado. Ver el comentario en rds.tf: mezclar
+# ambos estilos en el mismo SG hacía que Terraform compitiera por el control
+# y borrara esta regla en cada plan (hallazgo real de T029, 2026-10-07).
 
 resource "aws_glue_connection" "rds_jdbc" {
   name            = "${var.project_prefix}-rds-jdbc"
